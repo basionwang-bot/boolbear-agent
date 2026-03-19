@@ -2,9 +2,11 @@
  * 熊 Agent — 首页
  * 森林治愈系设计，温暖的欢迎页面
  */
+import { useAuth } from "@/_core/hooks/useAuth";
+import { trpc } from "@/lib/trpc";
 import { motion } from "framer-motion";
 import { Link } from "wouter";
-import { MessageCircle, TrendingUp, Users, Heart, Sparkles, ArrowRight } from "lucide-react";
+import { MessageCircle, TrendingUp, Users, Heart, Sparkles, ArrowRight, LogIn } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import { BEAR_IMAGES } from "@/lib/bearAssets";
 
@@ -40,6 +42,15 @@ const features = [
 ];
 
 export default function Home() {
+  // The userAuth hooks provides authentication state
+  // To implement login/logout functionality, simply call logout() or redirect to getLoginUrl()
+  let { user, loading, error, isAuthenticated, logout } = useAuth();
+  const bearQuery = trpc.bear.mine.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
+  const hasBear = !!bearQuery.data;
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -89,26 +100,52 @@ export default function Home() {
               </p>
 
               <div className="flex flex-col sm:flex-row gap-4 justify-center lg:justify-start">
-                <Link href="/adopt">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="bear-btn flex items-center gap-2 text-base px-8 py-3.5"
-                  >
-                    <Heart className="w-5 h-5" />
-                    领养小熊
-                  </motion.button>
-                </Link>
-                <Link href="/chat">
-                  <motion.button
-                    whileHover={{ scale: 1.05 }}
-                    whileTap={{ scale: 0.95 }}
-                    className="bear-btn-forest flex items-center gap-2 text-base px-8 py-3.5"
-                  >
-                    <MessageCircle className="w-5 h-5" />
-                    开始聊天
-                  </motion.button>
-                </Link>
+                {!isAuthenticated ? (
+                  <Link href="/auth">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="bear-btn flex items-center gap-2 text-base px-8 py-3.5"
+                    >
+                      <LogIn className="w-5 h-5" />
+                      注册 / 登录
+                    </motion.button>
+                  </Link>
+                ) : hasBear ? (
+                  <>
+                    <Link href="/chat">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="bear-btn flex items-center gap-2 text-base px-8 py-3.5"
+                      >
+                        <MessageCircle className="w-5 h-5" />
+                        和{bearQuery.data?.bearName}聊天
+                      </motion.button>
+                    </Link>
+                    <Link href="/dashboard">
+                      <motion.button
+                        whileHover={{ scale: 1.05 }}
+                        whileTap={{ scale: 0.95 }}
+                        className="bear-btn-forest flex items-center gap-2 text-base px-8 py-3.5"
+                      >
+                        <TrendingUp className="w-5 h-5" />
+                        成长看板
+                      </motion.button>
+                    </Link>
+                  </>
+                ) : (
+                  <Link href="/adopt">
+                    <motion.button
+                      whileHover={{ scale: 1.05 }}
+                      whileTap={{ scale: 0.95 }}
+                      className="bear-btn flex items-center gap-2 text-base px-8 py-3.5"
+                    >
+                      <Heart className="w-5 h-5" />
+                      领养小熊
+                    </motion.button>
+                  </Link>
+                )}
               </div>
             </motion.div>
 

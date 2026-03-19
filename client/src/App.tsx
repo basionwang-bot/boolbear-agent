@@ -10,16 +10,21 @@ import Dashboard from "./pages/Dashboard";
 import Square from "./pages/Square";
 import Adopt from "./pages/Adopt";
 import BearGallery from "./pages/BearGallery";
+import AuthPage from "./pages/AuthPage";
+import Admin from "./pages/Admin";
 
 function Router() {
+  // make sure to consider if you need authentication for certain routes
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/auth" component={AuthPage} />
       <Route path="/chat" component={Chat} />
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/square" component={Square} />
       <Route path="/adopt" component={Adopt} />
       <Route path="/gallery" component={BearGallery} />
+      <Route path="/admin" component={Admin} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>

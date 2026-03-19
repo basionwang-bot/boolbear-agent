@@ -1,52 +1,97 @@
 /*
  * 熊 Agent — 领养小熊
  * 选择你的小熊伙伴：可可、圆圆、冰冰
+ * 接入真实 tRPC API
  */
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Heart, ChevronRight, Check } from "lucide-react";
+import { Heart, ChevronRight, Check, Loader2 } from "lucide-react";
 import { useLocation } from "wouter";
+import { useAuth } from "@/_core/hooks/useAuth";
+import { trpc } from "@/lib/trpc";
 import Navbar from "@/components/Navbar";
 import { BEAR_IMAGES, BEAR_SKINS } from "@/lib/bearAssets";
 import { toast } from "sonner";
 
 const personalities = [
-  { id: "teacher", label: "老师型", desc: "严谨认真，循序渐进" },
-  { id: "friend", label: "朋友型", desc: "轻松幽默，平等交流" },
-  { id: "coach", label: "教练型", desc: "激励鼓舞，挑战极限" },
+  { id: "teacher" as const, label: "老师型", desc: "严谨认真，循序渐进" },
+  { id: "friend" as const, label: "朋友型", desc: "轻松幽默，平等交流" },
+  { id: "cool" as const, label: "酷酷型", desc: "简洁有力，直击要点" },
 ];
-
-const subjects = ["数学", "物理", "化学", "英语", "编程", "历史", "生物", "地理"];
 
 export default function Adopt() {
   const [step, setStep] = useState(0);
-  const [selectedBear, setSelectedBear] = useState<string | null>(null);
-  const [selectedPersonality, setSelectedPersonality] = useState<string | null>(null);
-  const [selectedSubjects, setSelectedSubjects] = useState<string[]>([]);
+  const [selectedBear, setSelectedBear] = useState<"grizzly" | "panda" | "polar" | null>(null);
+  const [selectedPersonality, setSelectedPersonality] = useState<"teacher" | "friend" | "cool" | null>(null);
   const [bearName, setBearName] = useState("");
   const [, navigate] = useLocation();
+  const { isAuthenticated, loading: authLoading } = useAuth();
 
-  const toggleSubject = (s: string) => {
-    setSelectedSubjects((prev) =>
-      prev.includes(s) ? prev.filter((x) => x !== s) : prev.length < 3 ? [...prev, s] : prev
-    );
-  };
+  // Check if user already has a bear
+  const bearQuery = trpc.bear.mine.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
+
+  const adoptMutation = trpc.bear.adopt.useMutation({
+    onSuccess: () => {
+      toast.success("领养成功！你的小熊已经迫不及待想和你学习了！");
+      navigate("/chat");
+    },
+    onError: (err) => {
+      if (err.message === "你已经领养了一只小熊") {
+        toast.info("你已经有一只小熊了，去和它聊天吧！");
+        navigate("/chat");
+      } else {
+        toast.error(err.message || "领养失败");
+      }
+    },
+  });
+
+  // Redirect if not authenticated
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      toast.error("请先登录");
+      navigate("/auth");
+    }
+  }, [authLoading, isAuthenticated, navigate]);
+
+  // Redirect if already has a bear
+  useEffect(() => {
+    if (bearQuery.data) {
+      toast.info("你已经有一只小熊了！");
+      navigate("/chat");
+    }
+  }, [bearQuery.data, navigate]);
 
   const canNext =
     (step === 0 && selectedBear) ||
     (step === 1 && selectedPersonality) ||
-    (step === 2 && selectedSubjects.length > 0) ||
-    (step === 3 && bearName.trim());
+    (step === 2 && bearName.trim());
 
   const handleNext = () => {
-    if (step < 3) setStep(step + 1);
-    else {
-      toast.success("领养成功！你的小熊已经迫不及待想和你学习了！");
-      navigate("/chat");
+    if (step < 2) {
+      setStep(step + 1);
+    } else {
+      // Submit adoption
+      if (!selectedBear || !selectedPersonality || !bearName.trim()) return;
+      adoptMutation.mutate({
+        bearName: bearName.trim(),
+        bearType: selectedBear,
+        personality: selectedPersonality,
+      });
     }
   };
 
-  const stepLabels = ["选择小熊", "设定性格", "擅长领域", "取个名字"];
+  const stepLabels = ["选择小熊", "设定性格", "取个名字"];
+
+  if (authLoading || bearQuery.isLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin" style={{ color: "oklch(0.52 0.09 55)" }} />
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-background">
@@ -93,7 +138,7 @@ export default function Adopt() {
                     key={bear.type}
                     whileHover={{ scale: 1.03 }}
                     whileTap={{ scale: 0.97 }}
-                    onClick={() => setSelectedBear(bear.type)}
+                    onClick={() => setSelectedBear(bear.type as "grizzly" | "panda" | "polar")}
                     className={`bear-card p-6 text-center cursor-pointer transition-all ${
                       selectedBear === bear.type ? "ring-2 shadow-lg" : ""
                     }`}
@@ -147,30 +192,6 @@ export default function Adopt() {
 
           {step === 2 && (
             <motion.div key="step2" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}>
-              <h2 className="text-xl font-bold text-center mb-2" style={{ color: "oklch(0.30 0.06 55)" }}>选择擅长领域</h2>
-              <p className="text-center text-sm text-muted-foreground mb-6">最多选择 3 个学科</p>
-              <div className="flex flex-wrap gap-3 justify-center max-w-lg mx-auto">
-                {subjects.map((s) => {
-                  const selected = selectedSubjects.includes(s);
-                  return (
-                    <motion.button
-                      key={s}
-                      whileHover={{ scale: 1.05 }}
-                      whileTap={{ scale: 0.95 }}
-                      onClick={() => toggleSubject(s)}
-                      className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all ${selected ? "text-white shadow-md" : "text-foreground/70"}`}
-                      style={{ background: selected ? "oklch(0.52 0.09 55)" : "oklch(0.52 0.09 55 / 0.08)" }}
-                    >
-                      {s}
-                    </motion.button>
-                  );
-                })}
-              </div>
-            </motion.div>
-          )}
-
-          {step === 3 && (
-            <motion.div key="step3" initial={{ opacity: 0, x: 30 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -30 }}>
               <h2 className="text-xl font-bold text-center mb-6" style={{ color: "oklch(0.30 0.06 55)" }}>给你的小熊取个名字</h2>
               <div className="max-w-sm mx-auto text-center">
                 <motion.img
@@ -216,11 +237,13 @@ export default function Adopt() {
             whileHover={{ scale: canNext ? 1.05 : 1 }}
             whileTap={{ scale: canNext ? 0.95 : 1 }}
             onClick={handleNext}
-            disabled={!canNext}
-            className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold text-white transition-all ${canNext ? "shadow-lg" : "opacity-40"}`}
+            disabled={!canNext || adoptMutation.isPending}
+            className={`flex items-center gap-2 px-6 py-3 rounded-full text-sm font-bold text-white transition-all ${canNext && !adoptMutation.isPending ? "shadow-lg" : "opacity-40"}`}
             style={{ background: "oklch(0.52 0.09 55)" }}
           >
-            {step === 3 ? (
+            {adoptMutation.isPending ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : step === 2 ? (
               <><Heart className="w-4 h-4" /> 完成领养</>
             ) : (
               <>下一步 <ChevronRight className="w-4 h-4" /></>
