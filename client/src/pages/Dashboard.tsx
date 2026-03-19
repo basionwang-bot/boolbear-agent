@@ -1,5 +1,5 @@
 /*
- * 裸熊 Agent — 成长看板
+ * 熊 Agent — 成长看板
  * 温暖治愈系风格，展示小熊成长数据
  */
 import { motion } from "framer-motion";
@@ -35,7 +35,7 @@ const recentSubjects = [
 export default function Dashboard() {
   const currentTier = BEAR_TIERS[2];
   const bear = {
-    name: "大大",
+    name: "可可",
     level: 10,
     exp: 720,
     maxExp: 1000,
@@ -64,7 +64,7 @@ export default function Dashboard() {
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bear-card p-6 text-center">
             <motion.img
               src={BEAR_IMAGES.grizzly}
-              alt="大大"
+              alt="可可"
               className="w-36 h-36 mx-auto mb-4 object-contain"
               animate={{ y: [0, -8, 0] }}
               transition={{ duration: 3, repeat: Infinity }}

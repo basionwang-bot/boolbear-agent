@@ -1,5 +1,5 @@
 /*
- * 裸熊 Agent — 对话页
+ * 熊 Agent — 对话页
  * 温暖的熊窝书房背景，模拟流式对话
  */
 import { useState, useRef, useEffect } from "react";
@@ -19,13 +19,13 @@ interface Message {
 const MOCK_REPLIES = [
   "嘿！这是一个很好的问题！让我想想怎么用最简单的方式解释给你听……\n\n**关键概念：**\n1. 首先，我们需要理解基本原理\n2. 然后，通过类比来加深理解\n3. 最后，用实际例子来验证\n\n你觉得这样解释清楚了吗？",
   "哇，你今天学习好认真！让我来帮你分析一下这个知识点。首先，我们需要理解基本概念……就像在森林里找路一样，先确定方向，再一步步走！",
-  "白熊觉得：这个问题的关键在于理解底层逻辑。让我一步一步带你走。\n\n> 核心公式：E = mc²\n\n这个公式告诉我们，质量和能量是可以互相转换的。就像你吃了一碗蜂蜜（质量），就有了爬树的力气（能量）一样！",
-  "胖达正在查资料中……找到了！这个知识点其实可以这样理解：把复杂的概念拆分成小块，就像吃竹子一样，一节一节来。",
-  "大大觉得你问得太棒了！这说明你已经在深入思考了。来，我们一起把这个问题搞清楚！\n\n你今天已经学了 45 分钟了，真棒！建议你休息 10 分钟后，我们来做几道练习题，好不好？",
+  "冰冰觉得：这个问题的关键在于理解底层逻辑。让我一步一步带你走。\n\n> 核心公式：E = mc²\n\n这个公式告诉我们，质量和能量是可以互相转换的。就像你吃了一碗蜂蜜（质量），就有了爬树的力气（能量）一样！",
+  "圆圆正在查资料中……找到了！这个知识点其实可以这样理解：把复杂的概念拆分成小块，就像吃竹子一样，一节一节来。",
+  "可可觉得你问得太棒了！这说明你已经在深入思考了。来，我们一起把这个问题搞清楚！\n\n你今天已经学了 45 分钟了，真棒！建议你休息 10 分钟后，我们来做几道练习题，好不好？",
 ];
 
 const bearStats = {
-  name: "大大",
+  name: "可可",
   tier: "黄金",
   level: 10,
   exp: 720,
@@ -41,7 +41,7 @@ export default function Chat() {
     {
       id: "welcome",
       role: "bear",
-      content: "嗨！我是你的学习小熊大大！今天想学点什么呢？随便问我吧，我会用最有趣的方式帮你理解！",
+      content: "嗨！我是你的学习小熊可可！今天想学点什么呢？随便问我吧，我会用最有趣的方式帮你理解！",
       timestamp: new Date(),
     },
   ]);
@@ -97,7 +97,7 @@ export default function Chat() {
           <div className="text-center space-y-3">
             <motion.img
               src={BEAR_IMAGES.grizzly}
-              alt="大大"
+              alt="可可"
               className="w-32 h-32 mx-auto object-contain"
               animate={{ y: [0, -6, 0] }}
               transition={{ duration: 3, repeat: Infinity }}
@@ -176,7 +176,7 @@ export default function Chat() {
           <div className="mt-auto pt-4 border-t border-[oklch(0.52_0.09_55/0.1)]">
             <div className="flex items-center gap-3">
               <motion.img
-                src={isTyping ? BEAR_IMAGES.thinking : BEAR_IMAGES.happy}
+                src={isTyping ? BEAR_IMAGES.thinking : BEAR_IMAGES.studying}
                 alt="状态"
                 className="w-12 h-12"
                 animate={isTyping ? { rotate: [0, -3, 3, 0] } : { scale: [1, 1.05, 1] }}
@@ -208,9 +208,9 @@ export default function Chat() {
 
           {/* Chat Header (mobile) */}
           <div className="lg:hidden px-4 py-3 border-b border-[oklch(0.52_0.09_55/0.1)] flex items-center gap-3 bg-white/90 backdrop-blur-sm relative z-10">
-            <img src={BEAR_IMAGES.grizzly} alt="大大" className="w-10 h-10 rounded-full" />
+            <img src={BEAR_IMAGES.grizzly} alt="可可" className="w-10 h-10 rounded-full" />
             <div>
-              <h2 className="font-bold text-sm" style={{ color: "oklch(0.30 0.06 55)" }}>大大 · 你的学习伙伴</h2>
+              <h2 className="font-bold text-sm" style={{ color: "oklch(0.30 0.06 55)" }}>可可 · 你的学习伙伴</h2>
               <p className="text-xs text-muted-foreground">黄金段位 · 经验值 {bearStats.exp}</p>
             </div>
           </div>
@@ -227,7 +227,7 @@ export default function Chat() {
                   className={`flex gap-3 ${msg.role === "user" ? "flex-row-reverse" : ""}`}
                 >
                   {msg.role === "bear" && (
-                    <img src={BEAR_IMAGES.grizzly} alt="大大" className="w-9 h-9 rounded-full shrink-0 mt-1" />
+                    <img src={BEAR_IMAGES.grizzly} alt="可可" className="w-9 h-9 rounded-full shrink-0 mt-1" />
                   )}
                   <div
                     className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
@@ -253,7 +253,7 @@ export default function Chat() {
 
             {isTyping && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="flex gap-3">
-                <img src={BEAR_IMAGES.grizzly} alt="大大" className="w-9 h-9 rounded-full shrink-0" />
+                <img src={BEAR_IMAGES.grizzly} alt="可可" className="w-9 h-9 rounded-full shrink-0" />
                 <div className="bg-white px-5 py-4 rounded-2xl rounded-bl-md border border-[oklch(0.52_0.09_55/0.1)] shadow-sm">
                   <div className="flex gap-1.5">
                     {[0, 1, 2].map((i) => (

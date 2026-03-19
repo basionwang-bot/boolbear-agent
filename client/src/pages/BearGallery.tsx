@@ -1,5 +1,5 @@
 /*
- * 裸熊 Agent — 熊熊展示库
+ * 熊 Agent — 熊熊图鉴
  * 展示所有可用的熊段位、三只主角和情绪状态
  */
 import { motion } from "framer-motion";

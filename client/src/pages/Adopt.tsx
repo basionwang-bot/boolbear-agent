@@ -1,6 +1,6 @@
 /*
- * 裸熊 Agent — 领养小熊
- * 选择你的小熊伙伴：大大、胖达、白熊
+ * 熊 Agent — 领养小熊
+ * 选择你的小熊伙伴：可可、圆圆、冰冰
  */
 import { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
@@ -174,7 +174,7 @@ export default function Adopt() {
               <h2 className="text-xl font-bold text-center mb-6" style={{ color: "oklch(0.30 0.06 55)" }}>给你的小熊取个名字</h2>
               <div className="max-w-sm mx-auto text-center">
                 <motion.img
-                  src={selectedBear === "panda" ? BEAR_IMAGES.panda : selectedBear === "iceBear" ? BEAR_IMAGES.iceBear : BEAR_IMAGES.grizzly}
+                  src={selectedBear === "panda" ? BEAR_IMAGES.panda : selectedBear === "polar" ? BEAR_IMAGES.polar : BEAR_IMAGES.grizzly}
                   alt="你的小熊"
                   className="w-32 h-32 mx-auto mb-6 object-contain"
                   animate={{ y: [0, -8, 0] }}

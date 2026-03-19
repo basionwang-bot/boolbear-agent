@@ -1,5 +1,5 @@
 /*
- * 裸熊 Agent — 首页
+ * 熊 Agent — 首页
  * 森林治愈系设计，温暖的欢迎页面
  */
 import { motion } from "framer-motion";
@@ -33,7 +33,7 @@ const features = [
   {
     icon: Heart,
     title: "个性定制",
-    desc: "选择你喜欢的熊熊性格——热情的大大、可爱的胖达、酷酷的白熊",
+    desc: "选择你喜欢的熊熊性格——热情的可可、可爱的圆圆、酷酷的冰冰",
     color: "oklch(0.65 0.20 15)",
     bgColor: "oklch(0.65 0.20 15 / 0.08)",
   },
@@ -119,28 +119,34 @@ export default function Home() {
               transition={{ duration: 0.7, delay: 0.3 }}
               className="flex-1 flex items-end justify-center"
             >
-              <div className="flex items-end justify-center -space-x-6">
+              <div className="flex flex-col items-center gap-4">
                 <motion.img
-                  src={BEAR_IMAGES.panda}
-                  alt="胖达"
-                  className="w-28 sm:w-36 lg:w-40 drop-shadow-xl relative z-0"
-                  animate={{ y: [0, -8, 0] }}
-                  transition={{ duration: 3, repeat: Infinity, delay: 0.5 }}
+                  src={BEAR_IMAGES.group}
+                  alt="三只小熊"
+                  className="w-64 sm:w-80 lg:w-96 drop-shadow-2xl"
+                  animate={{ y: [0, -10, 0] }}
+                  transition={{ duration: 4, repeat: Infinity }}
                 />
-                <motion.img
-                  src={BEAR_IMAGES.grizzly}
-                  alt="大大"
-                  className="w-36 sm:w-44 lg:w-52 drop-shadow-2xl relative z-10"
-                  animate={{ y: [0, -12, 0] }}
-                  transition={{ duration: 3, repeat: Infinity }}
-                />
-                <motion.img
-                  src={BEAR_IMAGES.iceBear}
-                  alt="白熊"
-                  className="w-28 sm:w-36 lg:w-40 drop-shadow-xl relative z-0"
-                  animate={{ y: [0, -8, 0] }}
-                  transition={{ duration: 3, repeat: Infinity, delay: 1 }}
-                />
+                <div className="flex items-center gap-6 mt-2">
+                  <motion.img
+                    src={BEAR_IMAGES.grizzly}
+                    alt="可可"
+                    className="w-16 h-16 rounded-full ring-2 ring-[oklch(0.52_0.09_55/0.3)] shadow-lg"
+                    whileHover={{ scale: 1.15, rotate: 5 }}
+                  />
+                  <motion.img
+                    src={BEAR_IMAGES.panda}
+                    alt="圆圆"
+                    className="w-16 h-16 rounded-full ring-2 ring-[oklch(0.50_0.10_155/0.3)] shadow-lg"
+                    whileHover={{ scale: 1.15, rotate: -5 }}
+                  />
+                  <motion.img
+                    src={BEAR_IMAGES.polar}
+                    alt="冰冰"
+                    className="w-16 h-16 rounded-full ring-2 ring-[oklch(0.78_0.08_230/0.3)] shadow-lg"
+                    whileHover={{ scale: 1.15, rotate: 5 }}
+                  />
+                </div>
               </div>
             </motion.div>
           </div>
@@ -157,7 +163,7 @@ export default function Home() {
             className="text-center mb-14"
           >
             <h2 className="text-3xl sm:text-4xl font-black mb-4" style={{ color: "oklch(0.30 0.06 55)" }}>
-              为什么选择裸熊 Agent？
+              为什么选择熊 Agent？
             </h2>
             <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
               我们把 AI 学习变成了一场温暖的冒险
@@ -217,8 +223,10 @@ export default function Home() {
           <div className="flex flex-col sm:flex-row items-center justify-center gap-8 sm:gap-12">
             {[
               { img: BEAR_IMAGES.bronzeTier, label: "小熊崽", sub: "青铜", color: "#CD7F32" },
-              { img: BEAR_IMAGES.goldTier, label: "成年熊", sub: "黄金", color: "#FFD700" },
-              { img: BEAR_IMAGES.kingTier, label: "传奇熊", sub: "王者", color: "#E74C3C" },
+              { img: BEAR_IMAGES.silverTier, label: "学徒熊", sub: "白银", color: "#8B9DAF" },
+              { img: BEAR_IMAGES.goldTier, label: "学者熊", sub: "黄金", color: "#D4A017" },
+              { img: BEAR_IMAGES.diamondTier, label: "魔法熊", sub: "钻石", color: "#5B9BD5" },
+              { img: BEAR_IMAGES.kingTier, label: "王者熊", sub: "王者", color: "#E74C3C" },
             ].map((tier, i) => (
               <motion.div
                 key={tier.label}
@@ -273,7 +281,10 @@ export default function Home() {
               <img src={BEAR_IMAGES.happy} alt="" className="w-24" />
             </div>
             <div className="absolute bottom-4 right-8 opacity-20">
-              <img src={BEAR_IMAGES.thinking} alt="" className="w-24" />
+              <img src={BEAR_IMAGES.studying} alt="" className="w-24" />
+            </div>
+            <div className="absolute top-6 right-12 opacity-15">
+              <img src={BEAR_IMAGES.thinking} alt="" className="w-20" />
             </div>
 
             <h2 className="text-3xl sm:text-4xl font-black text-white mb-4 relative z-10">
@@ -300,8 +311,8 @@ export default function Home() {
       {/* Footer */}
       <footer className="py-8 border-t border-[oklch(0.52_0.09_55/0.1)]">
         <div className="container text-center text-sm text-muted-foreground">
-          <p>裸熊 Agent — 让 AI 学习变得温暖有趣</p>
-          <p className="mt-1 text-xs">Powered by We Bare Bears Spirit</p>
+          <p>熊 Agent — 让 AI 学习变得温暖有趣</p>
+          <p className="mt-1 text-xs">Powered by Bear Agent Team</p>
         </div>
       </footer>
     </div>

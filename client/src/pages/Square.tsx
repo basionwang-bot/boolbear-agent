@@ -1,5 +1,5 @@
 /*
- * 裸熊 Agent — 熊熊广场
+ * 熊 Agent — 熊熊广场
  * 展示其他同学的小熊和排行榜
  */
 import { motion } from "framer-motion";
@@ -8,19 +8,19 @@ import Navbar from "@/components/Navbar";
 import { BEAR_IMAGES, BEAR_TIERS } from "@/lib/bearAssets";
 
 const leaderboard = [
-  { rank: 1, name: "小明", bear: "大大", tier: 5, exp: 8200, chats: 520, avatar: BEAR_IMAGES.kingTier },
-  { rank: 2, name: "小红", bear: "胖达", tier: 4, exp: 6800, chats: 410, avatar: BEAR_IMAGES.goldTier },
-  { rank: 3, name: "小华", bear: "白熊", tier: 4, exp: 6500, chats: 380, avatar: BEAR_IMAGES.goldTier },
-  { rank: 4, name: "小李", bear: "大大", tier: 3, exp: 5200, chats: 290, avatar: BEAR_IMAGES.goldTier },
-  { rank: 5, name: "小张", bear: "胖达", tier: 2, exp: 3800, chats: 220, avatar: BEAR_IMAGES.bronzeTier },
-  { rank: 6, name: "小王", bear: "白熊", tier: 2, exp: 3500, chats: 195, avatar: BEAR_IMAGES.bronzeTier },
+  { rank: 1, name: "小明", bear: "可可", tier: 5, exp: 8200, chats: 520, avatar: BEAR_IMAGES.kingTier },
+  { rank: 2, name: "小红", bear: "圆圆", tier: 4, exp: 6800, chats: 410, avatar: BEAR_IMAGES.starlightTier },
+  { rank: 3, name: "小华", bear: "冰冰", tier: 4, exp: 6500, chats: 380, avatar: BEAR_IMAGES.diamondTier },
+  { rank: 4, name: "小李", bear: "可可", tier: 3, exp: 5200, chats: 290, avatar: BEAR_IMAGES.platinumTier },
+  { rank: 5, name: "小张", bear: "圆圆", tier: 2, exp: 3800, chats: 220, avatar: BEAR_IMAGES.goldTier },
+  { rank: 6, name: "小王", bear: "冰冰", tier: 2, exp: 3500, chats: 195, avatar: BEAR_IMAGES.silverTier },
 ];
 
 const recentActivity = [
-  { user: "小明", action: "的大大升级到了钻石段位！", time: "5 分钟前", icon: Crown },
+  { user: "小明", action: "的可可升级到了王者段位！", time: "5 分钟前", icon: Crown },
   { user: "小红", action: "完成了「连续学习 7 天」成就", time: "12 分钟前", icon: Trophy },
-  { user: "小华", action: "和白熊进行了 30 轮深度对话", time: "25 分钟前", icon: MessageCircle },
-  { user: "小李", action: "的大大获得了「学霸」皮肤", time: "1 小时前", icon: Star },
+  { user: "小华", action: "和冰冰进行了 30 轮深度对话", time: "25 分钟前", icon: MessageCircle },
+  { user: "小李", action: "的可可获得了「学霸」皮肤", time: "1 小时前", icon: Star },
 ];
 
 const rankColors = ["#FFD700", "#C0C0C0", "#CD7F32"];

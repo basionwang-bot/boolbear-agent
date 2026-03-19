@@ -1,5 +1,5 @@
 /*
- * 裸熊 Agent 导航栏
+ * 熊 Agent 导航栏
  * 风格：温暖治愈系，圆润柔和
  */
 import { useState } from "react";
@@ -28,11 +28,11 @@ export default function Navbar() {
         <Link href="/" className="flex items-center gap-2.5 group">
           <img
             src={BEAR_IMAGES.grizzly}
-            alt="裸熊 Agent"
+            alt="熊 Agent"
             className="w-9 h-9 rounded-full ring-2 ring-[oklch(0.52_0.09_55/0.2)] group-hover:ring-[oklch(0.52_0.09_55/0.5)] transition-all"
           />
           <span className="font-extrabold text-lg tracking-tight" style={{ color: "oklch(0.52 0.09 55)" }}>
-            裸熊 Agent
+            熊 Agent
           </span>
         </Link>
 
