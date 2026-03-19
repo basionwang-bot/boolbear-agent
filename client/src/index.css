@@ -3,6 +3,13 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/*
+ * 裸熊 Agent 主题 — 森林治愈系
+ * 灵感来源：咱们裸熊 (We Bare Bears)
+ * 核心色调：温暖棕色 + 森林绿 + 天空蓝 + 奶油白
+ * 字体：Nunito (圆润温暖) + Noto Sans SC (中文)
+ */
+
 @theme inline {
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
@@ -41,54 +48,53 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
 
-  /* Deep Sea Bioluminescence custom colors */
-  --color-cyan-glow: oklch(0.82 0.15 195);
-  --color-coral-orange: oklch(0.7 0.18 40);
-  --color-mint-glow: oklch(0.82 0.16 160);
-  --color-amber-gold: oklch(0.85 0.15 85);
-  --color-deep-navy: oklch(0.15 0.03 260);
-  --color-deep-navy-light: oklch(0.18 0.035 260);
+  /* 裸熊主题自定义色 */
+  --color-bear-brown: oklch(0.52 0.09 55);
+  --color-bear-cream: oklch(0.97 0.01 85);
+  --color-bear-forest: oklch(0.50 0.10 155);
+  --color-bear-sky: oklch(0.78 0.08 230);
+  --color-bear-warm: oklch(0.75 0.12 65);
+  --color-bear-gold: oklch(0.80 0.15 85);
 
-  --font-display: "Space Grotesk", sans-serif;
-  --font-sans: "Noto Sans SC", sans-serif;
+  --font-display: "Nunito", "Noto Sans SC", sans-serif;
+  --font-body: "Nunito", "Noto Sans SC", sans-serif;
   --font-mono: "JetBrains Mono", monospace;
 }
 
-/* Deep Sea Dark Theme - Default */
 :root {
+  --primary: oklch(0.52 0.09 55);
+  --primary-foreground: oklch(0.98 0.005 85);
+  --sidebar-primary: oklch(0.50 0.10 155);
+  --sidebar-primary-foreground: oklch(0.98 0.005 85);
+  --chart-1: oklch(0.52 0.09 55);
+  --chart-2: oklch(0.50 0.10 155);
+  --chart-3: oklch(0.75 0.12 65);
+  --chart-4: oklch(0.78 0.08 230);
+  --chart-5: oklch(0.80 0.15 85);
   --radius: 0.75rem;
-  --background: oklch(0.12 0.025 260);
-  --foreground: oklch(0.92 0.01 220);
-  --card: oklch(0.16 0.03 260);
-  --card-foreground: oklch(0.92 0.01 220);
-  --popover: oklch(0.16 0.03 260);
-  --popover-foreground: oklch(0.92 0.01 220);
-  --primary: oklch(0.82 0.15 195);
-  --primary-foreground: oklch(0.12 0.025 260);
-  --secondary: oklch(0.2 0.03 260);
-  --secondary-foreground: oklch(0.82 0.15 195);
-  --muted: oklch(0.2 0.025 260);
-  --muted-foreground: oklch(0.6 0.02 220);
-  --accent: oklch(0.7 0.18 40);
-  --accent-foreground: oklch(0.98 0.005 40);
-  --destructive: oklch(0.6 0.22 25);
-  --destructive-foreground: oklch(0.98 0 0);
-  --border: oklch(0.25 0.03 260);
-  --input: oklch(0.22 0.03 260);
-  --ring: oklch(0.82 0.15 195);
-  --chart-1: oklch(0.82 0.15 195);
-  --chart-2: oklch(0.7 0.18 40);
-  --chart-3: oklch(0.82 0.16 160);
-  --chart-4: oklch(0.85 0.15 85);
-  --chart-5: oklch(0.6 0.12 280);
-  --sidebar: oklch(0.14 0.028 260);
-  --sidebar-foreground: oklch(0.92 0.01 220);
-  --sidebar-primary: oklch(0.82 0.15 195);
-  --sidebar-primary-foreground: oklch(0.12 0.025 260);
-  --sidebar-accent: oklch(0.2 0.03 260);
-  --sidebar-accent-foreground: oklch(0.92 0.01 220);
-  --sidebar-border: oklch(0.25 0.03 260);
-  --sidebar-ring: oklch(0.82 0.15 195);
+  --background: oklch(0.97 0.01 85);
+  --foreground: oklch(0.25 0.04 55);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.25 0.04 55);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.25 0.04 55);
+  --secondary: oklch(0.94 0.015 85);
+  --secondary-foreground: oklch(0.35 0.05 55);
+  --muted: oklch(0.94 0.01 85);
+  --muted-foreground: oklch(0.55 0.03 55);
+  --accent: oklch(0.92 0.02 155);
+  --accent-foreground: oklch(0.30 0.06 155);
+  --destructive: oklch(0.577 0.245 27.325);
+  --destructive-foreground: oklch(0.985 0 0);
+  --border: oklch(0.90 0.015 85);
+  --input: oklch(0.90 0.015 85);
+  --ring: oklch(0.52 0.09 55);
+  --sidebar: oklch(0.96 0.01 85);
+  --sidebar-foreground: oklch(0.25 0.04 55);
+  --sidebar-accent: oklch(0.92 0.02 155);
+  --sidebar-accent-foreground: oklch(0.30 0.06 155);
+  --sidebar-border: oklch(0.90 0.015 85);
+  --sidebar-ring: oklch(0.52 0.09 55);
 }
 
 @layer base {
@@ -96,9 +102,8 @@
     @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground font-sans;
-    -webkit-font-smoothing: antialiased;
-    -moz-osx-font-smoothing: grayscale;
+    @apply bg-background text-foreground;
+    font-family: "Nunito", "Noto Sans SC", sans-serif;
   }
   button:not(:disabled),
   [role="button"]:not([aria-disabled="true"]),
@@ -142,67 +147,48 @@
     }
   }
 
-  /* Glow effects */
-  .glow-cyan {
-    box-shadow: 0 0 15px oklch(0.82 0.15 195 / 0.3), 0 0 30px oklch(0.82 0.15 195 / 0.1);
+  /* 裸熊主题卡片 */
+  .bear-card {
+    background: oklch(1 0 0);
+    border: 1px solid oklch(0.90 0.015 85);
+    border-radius: 1rem;
+    box-shadow: 0 2px 12px oklch(0.52 0.09 55 / 0.08);
+    transition: all 0.3s ease;
   }
-  .glow-cyan-strong {
-    box-shadow: 0 0 20px oklch(0.82 0.15 195 / 0.5), 0 0 40px oklch(0.82 0.15 195 / 0.2), 0 0 60px oklch(0.82 0.15 195 / 0.1);
-  }
-  .glow-orange {
-    box-shadow: 0 0 15px oklch(0.7 0.18 40 / 0.3), 0 0 30px oklch(0.7 0.18 40 / 0.1);
-  }
-  .glow-orange-strong {
-    box-shadow: 0 0 20px oklch(0.7 0.18 40 / 0.5), 0 0 40px oklch(0.7 0.18 40 / 0.2);
-  }
-  .glow-gold {
-    box-shadow: 0 0 15px oklch(0.85 0.15 85 / 0.3), 0 0 30px oklch(0.85 0.15 85 / 0.1);
+  .bear-card:hover {
+    box-shadow: 0 8px 24px oklch(0.52 0.09 55 / 0.15);
+    transform: translateY(-2px);
   }
 
-  .text-glow-cyan {
-    text-shadow: 0 0 10px oklch(0.82 0.15 195 / 0.5), 0 0 20px oklch(0.82 0.15 195 / 0.3);
+  /* 裸熊主题按钮 */
+  .bear-btn {
+    background: oklch(0.52 0.09 55);
+    color: white;
+    border-radius: 9999px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 700;
+    transition: all 0.3s ease;
   }
-  .text-glow-orange {
-    text-shadow: 0 0 10px oklch(0.7 0.18 40 / 0.5), 0 0 20px oklch(0.7 0.18 40 / 0.3);
-  }
-
-  /* Glass morphism card */
-  .glass-card {
-    background: oklch(0.16 0.03 260 / 0.6);
-    backdrop-filter: blur(16px);
-    border: 1px solid oklch(0.82 0.15 195 / 0.15);
-  }
-
-  /* Breathing animation for lobster */
-  @keyframes breathe {
-    0%, 100% { transform: scale(1); }
-    50% { transform: scale(1.03); }
-  }
-  .animate-breathe {
-    animation: breathe 3s ease-in-out infinite;
+  .bear-btn:hover {
+    background: oklch(0.45 0.10 55);
+    transform: scale(1.05);
   }
 
-  /* Float animation for particles */
-  @keyframes float-up {
-    0% { transform: translateY(0) scale(1); opacity: 0.6; }
-    100% { transform: translateY(-100vh) scale(0.3); opacity: 0; }
+  .bear-btn-forest {
+    background: oklch(0.50 0.10 155);
+    color: white;
+    border-radius: 9999px;
+    padding: 0.75rem 1.5rem;
+    font-weight: 700;
+    transition: all 0.3s ease;
+  }
+  .bear-btn-forest:hover {
+    background: oklch(0.42 0.11 155);
+    transform: scale(1.05);
   }
 
-  /* Pulse glow animation */
-  @keyframes pulse-glow {
-    0%, 100% { opacity: 0.4; }
-    50% { opacity: 1; }
-  }
-  .animate-pulse-glow {
-    animation: pulse-glow 2s ease-in-out infinite;
-  }
-
-  /* Shimmer effect for progress bars */
-  @keyframes shimmer {
-    0% { transform: translateX(-100%); }
-    100% { transform: translateX(100%); }
-  }
-  .animate-shimmer {
-    animation: shimmer 2s ease-in-out infinite;
+  /* 温暖渐变背景 */
+  .bear-gradient {
+    background: linear-gradient(135deg, oklch(0.97 0.01 85), oklch(0.94 0.02 155 / 0.3), oklch(0.96 0.015 85));
   }
 }

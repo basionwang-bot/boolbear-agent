@@ -1,253 +1,172 @@
-/**
- * Square — 龙虾广场
- * 设计风格：深海生物发光 (Bioluminescence)
- * 展示所有学生的龙虾，排行榜和社交互动
+/*
+ * 裸熊 Agent — 熊熊广场
+ * 展示其他同学的小熊和排行榜
  */
 import { motion } from "framer-motion";
-import { Trophy, Crown, TrendingUp, Flame, Search } from "lucide-react";
-import { useState } from "react";
+import { Trophy, TrendingUp, MessageCircle, Star, Crown } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import ParticleBackground from "@/components/ParticleBackground";
-import GlowCard from "@/components/GlowCard";
-
-const LOBSTER_HERO = "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/lobster-hero-5E7aSMe59zcws2kjVc7LDP.webp";
-const LOBSTER_BRONZE = "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/lobster-bronze-d2Tm6niFfZRw72gpwiGRaj.webp";
-const LOBSTER_DIAMOND = "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/lobster-diamond-RmNu4AtC2Yu6X8ghz7Qt6L.webp";
-
-const tierColors: Record<string, string> = {
-  "青铜": "oklch(0.6 0.08 60)",
-  "白银": "oklch(0.7 0.02 260)",
-  "黄金": "oklch(0.85 0.15 85)",
-  "铂金": "oklch(0.75 0.08 195)",
-  "钻石": "oklch(0.82 0.15 195)",
-  "星耀": "oklch(0.7 0.18 40)",
-  "王者": "oklch(0.85 0.15 85)",
-};
-
-const lobsterImages: Record<string, string> = {
-  "青铜": LOBSTER_BRONZE,
-  "白银": LOBSTER_BRONZE,
-  "黄金": LOBSTER_HERO,
-  "铂金": LOBSTER_HERO,
-  "钻石": LOBSTER_DIAMOND,
-  "星耀": LOBSTER_DIAMOND,
-  "王者": LOBSTER_DIAMOND,
-};
+import { BEAR_IMAGES, BEAR_TIERS } from "@/lib/bearAssets";
 
 const leaderboard = [
-  { rank: 1, name: "学霸小明", lobsterName: "深海霸主", tier: "王者", level: 28, exp: 12800, streak: 45, avatar: "🦊" },
-  { rank: 2, name: "数学达人", lobsterName: "闪电虾", tier: "星耀", level: 24, exp: 10200, streak: 38, avatar: "🐱" },
-  { rank: 3, name: "物理少年", lobsterName: "量子虾", tier: "钻石", level: 20, exp: 8500, streak: 30, avatar: "🐶" },
-  { rank: 4, name: "英语小王子", lobsterName: "翻译虾", tier: "钻石", level: 18, exp: 7200, streak: 25, avatar: "🐻" },
-  { rank: 5, name: "化学实验家", lobsterName: "元素虾", tier: "铂金", level: 15, exp: 5800, streak: 20, avatar: "🐼" },
-  { rank: 6, name: "历史探索者", lobsterName: "时光虾", tier: "黄金", level: 12, exp: 4200, streak: 15, avatar: "🐯" },
-  { rank: 7, name: "生物爱好者", lobsterName: "基因虾", tier: "黄金", level: 10, exp: 3500, streak: 12, avatar: "🐰" },
-  { rank: 8, name: "编程新手", lobsterName: "代码虾", tier: "白银", level: 7, exp: 2100, streak: 8, avatar: "🦄" },
-  { rank: 9, name: "地理迷", lobsterName: "航海虾", tier: "白银", level: 5, exp: 1500, streak: 5, avatar: "🐨" },
-  { rank: 10, name: "新同学", lobsterName: "小虾米", tier: "青铜", level: 2, exp: 400, streak: 2, avatar: "🐧" },
+  { rank: 1, name: "小明", bear: "大大", tier: 5, exp: 8200, chats: 520, avatar: BEAR_IMAGES.kingTier },
+  { rank: 2, name: "小红", bear: "胖达", tier: 4, exp: 6800, chats: 410, avatar: BEAR_IMAGES.goldTier },
+  { rank: 3, name: "小华", bear: "白熊", tier: 4, exp: 6500, chats: 380, avatar: BEAR_IMAGES.goldTier },
+  { rank: 4, name: "小李", bear: "大大", tier: 3, exp: 5200, chats: 290, avatar: BEAR_IMAGES.goldTier },
+  { rank: 5, name: "小张", bear: "胖达", tier: 2, exp: 3800, chats: 220, avatar: BEAR_IMAGES.bronzeTier },
+  { rank: 6, name: "小王", bear: "白熊", tier: 2, exp: 3500, chats: 195, avatar: BEAR_IMAGES.bronzeTier },
 ];
 
-type Tab = "ranking" | "gallery";
+const recentActivity = [
+  { user: "小明", action: "的大大升级到了钻石段位！", time: "5 分钟前", icon: Crown },
+  { user: "小红", action: "完成了「连续学习 7 天」成就", time: "12 分钟前", icon: Trophy },
+  { user: "小华", action: "和白熊进行了 30 轮深度对话", time: "25 分钟前", icon: MessageCircle },
+  { user: "小李", action: "的大大获得了「学霸」皮肤", time: "1 小时前", icon: Star },
+];
+
+const rankColors = ["#FFD700", "#C0C0C0", "#CD7F32"];
 
 export default function Square() {
-  const [activeTab, setActiveTab] = useState<Tab>("ranking");
-
   return (
-    <div className="min-h-screen relative">
-      <ParticleBackground count={20} />
+    <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="pt-24 pb-12">
-        <div className="container space-y-8">
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-2"
-          >
-            <h1 className="font-display text-3xl font-bold text-foreground">龙虾广场</h1>
-            <p className="text-muted-foreground">看看其他同学的龙虾，互相学习共同进步</p>
-          </motion.div>
+      <div className="container py-8">
+        {/* Header */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <h1 className="text-3xl font-black" style={{ color: "oklch(0.30 0.06 55)" }}>熊熊广场</h1>
+          <p className="text-muted-foreground mt-1">看看其他同学的小熊，一起学习一起进步</p>
+        </motion.div>
 
-          {/* Tabs */}
-          <div className="flex gap-2">
-            {[
-              { id: "ranking" as Tab, label: "排行榜", icon: Trophy },
-              { id: "gallery" as Tab, label: "龙虾展览", icon: Crown },
-            ].map((tab) => (
-              <motion.button
-                key={tab.id}
-                whileHover={{ scale: 1.02 }}
-                whileTap={{ scale: 0.98 }}
-                onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 px-5 py-2.5 rounded-lg text-sm font-medium transition-all duration-300 ${
-                  activeTab === tab.id
-                    ? "text-cyan-glow glow-cyan"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-                style={{
-                  background: activeTab === tab.id ? "oklch(0.82 0.15 195 / 0.1)" : "transparent",
-                  border: `1px solid ${activeTab === tab.id ? "oklch(0.82 0.15 195 / 0.3)" : "oklch(0.25 0.03 260)"}`,
-                }}
-              >
-                <tab.icon className="w-4 h-4" />
-                {tab.label}
-              </motion.button>
-            ))}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* Leaderboard */}
+          <div className="lg:col-span-2">
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bear-card p-6">
+              <h2 className="font-bold text-lg mb-6 flex items-center gap-2" style={{ color: "oklch(0.30 0.06 55)" }}>
+                <Trophy className="w-5 h-5" style={{ color: "#FFD700" }} /> 学习排行榜
+              </h2>
+
+              {/* Top 3 Podium */}
+              <div className="flex items-end justify-center gap-4 mb-8">
+                {[1, 0, 2].map((idx) => {
+                  const user = leaderboard[idx];
+                  const isFirst = idx === 0;
+                  return (
+                    <motion.div
+                      key={user.rank}
+                      initial={{ opacity: 0, y: 20 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: 0.2 + idx * 0.1 }}
+                      className="flex flex-col items-center"
+                    >
+                      <div className="relative">
+                        {isFirst && (
+                          <Crown className="absolute -top-4 left-1/2 -translate-x-1/2 w-6 h-6" style={{ color: "#FFD700" }} />
+                        )}
+                        <motion.div
+                          whileHover={{ scale: 1.08 }}
+                          className={`${isFirst ? "w-24 h-24" : "w-20 h-20"} rounded-2xl overflow-hidden bg-white shadow-lg p-2`}
+                          style={{ border: `3px solid ${rankColors[user.rank - 1]}40` }}
+                        >
+                          <img src={user.avatar} alt={user.bear} className="w-full h-full object-contain" />
+                        </motion.div>
+                      </div>
+                      <div
+                        className="w-8 h-8 rounded-full flex items-center justify-center -mt-3 relative z-10 text-white text-sm font-black shadow-md"
+                        style={{ background: rankColors[user.rank - 1] }}
+                      >
+                        {user.rank}
+                      </div>
+                      <p className="font-bold text-sm mt-1" style={{ color: "oklch(0.30 0.06 55)" }}>{user.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{BEAR_TIERS[user.tier].rank}</p>
+                      <p className="text-xs font-mono font-bold mt-0.5" style={{ color: rankColors[user.rank - 1] }}>{user.exp} EXP</p>
+                    </motion.div>
+                  );
+                })}
+              </div>
+
+              {/* Rest of leaderboard */}
+              <div className="space-y-2">
+                {leaderboard.slice(3).map((user, i) => (
+                  <motion.div
+                    key={user.rank}
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ delay: 0.5 + i * 0.08 }}
+                    className="flex items-center gap-4 p-3 rounded-xl hover:bg-[oklch(0.52_0.09_55/0.04)] transition"
+                  >
+                    <span className="w-8 text-center font-black text-muted-foreground">{user.rank}</span>
+                    <img src={user.avatar} alt={user.bear} className="w-10 h-10 rounded-xl object-contain bg-white p-1 shadow-sm" />
+                    <div className="flex-1">
+                      <p className="font-bold text-sm" style={{ color: "oklch(0.30 0.06 55)" }}>{user.name}</p>
+                      <p className="text-[10px] text-muted-foreground">{user.bear} · {BEAR_TIERS[user.tier].rank}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-mono font-bold" style={{ color: "oklch(0.52 0.09 55)" }}>{user.exp}</p>
+                      <p className="text-[10px] text-muted-foreground">{user.chats} 次对话</p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </motion.div>
           </div>
 
-          {activeTab === "ranking" ? <RankingView /> : <GalleryView />}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function RankingView() {
-  return (
-    <div className="space-y-6">
-      {/* Top 3 Podium */}
-      <div className="grid grid-cols-3 gap-4 max-w-3xl mx-auto">
-        {[1, 0, 2].map((idx) => {
-          const player = leaderboard[idx];
-          const isFirst = player.rank === 1;
-          return (
-            <motion.div
-              key={player.rank}
-              initial={{ opacity: 0, y: 30 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.15 }}
-              className={`${isFirst ? "order-2 -mt-4" : idx === 0 ? "order-1 mt-4" : "order-3 mt-4"}`}
-            >
-              <GlowCard glowColor={isFirst ? "gold" : "cyan"} className="text-center py-6">
-                <div className="relative inline-block mb-3">
-                  {isFirst && (
-                    <Crown className="absolute -top-4 left-1/2 -translate-x-1/2 w-6 h-6 text-amber-gold z-20" />
-                  )}
-                  <img
-                    src={lobsterImages[player.tier]}
-                    alt={player.lobsterName}
-                    className={`w-20 h-20 object-contain ${isFirst ? "animate-breathe" : ""}`}
-                  />
-                </div>
-                <div
-                  className="inline-flex items-center justify-center w-8 h-8 rounded-full font-mono font-bold text-sm mb-2"
-                  style={{
-                    background: isFirst ? "oklch(0.85 0.15 85 / 0.2)" : "oklch(0.82 0.15 195 / 0.1)",
-                    color: isFirst ? "oklch(0.85 0.15 85)" : "oklch(0.82 0.15 195)",
-                    border: `1px solid ${isFirst ? "oklch(0.85 0.15 85 / 0.3)" : "oklch(0.82 0.15 195 / 0.2)"}`,
-                  }}
-                >
-                  {player.rank}
-                </div>
-                <h3 className="font-display text-sm font-semibold text-foreground">{player.name}</h3>
-                <div className="text-xs text-muted-foreground mt-0.5">{player.lobsterName}</div>
-                <div
-                  className="inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-mono font-bold"
-                  style={{
-                    background: `${tierColors[player.tier]}15`,
-                    color: tierColors[player.tier],
-                    border: `1px solid ${tierColors[player.tier]}30`,
-                  }}
-                >
-                  {player.tier} · Lv.{player.level}
-                </div>
-              </GlowCard>
+          {/* Sidebar */}
+          <div className="lg:col-span-1 space-y-6">
+            {/* Recent Activity */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bear-card p-6">
+              <h2 className="font-bold text-lg mb-5 flex items-center gap-2" style={{ color: "oklch(0.30 0.06 55)" }}>
+                <TrendingUp className="w-5 h-5" style={{ color: "oklch(0.50 0.10 155)" }} /> 最新动态
+              </h2>
+              <div className="space-y-4">
+                {recentActivity.map((act, i) => {
+                  const Icon = act.icon;
+                  return (
+                    <motion.div
+                      key={i}
+                      initial={{ opacity: 0, x: 20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ delay: 0.3 + i * 0.1 }}
+                      className="flex gap-3"
+                    >
+                      <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0" style={{ background: "oklch(0.52 0.09 55 / 0.08)" }}>
+                        <Icon className="w-4 h-4" style={{ color: "oklch(0.52 0.09 55)" }} />
+                      </div>
+                      <div>
+                        <p className="text-sm">
+                          <span className="font-bold" style={{ color: "oklch(0.30 0.06 55)" }}>{act.user}</span>
+                          <span className="text-muted-foreground">{act.action}</span>
+                        </p>
+                        <p className="text-[10px] text-muted-foreground mt-0.5">{act.time}</p>
+                      </div>
+                    </motion.div>
+                  );
+                })}
+              </div>
             </motion.div>
-          );
-        })}
-      </div>
 
-      {/* Full Leaderboard */}
-      <GlowCard glowColor="cyan" delay={0.3}>
-        <div className="space-y-1">
-          {leaderboard.slice(3).map((player, i) => (
-            <motion.div
-              key={player.rank}
-              initial={{ opacity: 0, x: -20 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ delay: 0.4 + i * 0.05 }}
-              className="flex items-center gap-4 py-3 px-4 rounded-lg hover:bg-secondary/30 transition-colors"
-            >
-              <span className="w-8 text-center font-mono text-sm text-muted-foreground">{player.rank}</span>
-              <div
-                className="w-9 h-9 rounded-full flex items-center justify-center text-base"
-                style={{ background: "oklch(0.2 0.03 260)", border: "1px solid oklch(0.25 0.03 260)" }}
-              >
-                {player.avatar}
-              </div>
-              <div className="flex-1">
-                <div className="text-sm font-medium text-foreground">{player.name}</div>
-                <div className="text-xs text-muted-foreground">{player.lobsterName}</div>
-              </div>
-              <div
-                className="px-2 py-0.5 rounded text-[10px] font-mono font-bold"
-                style={{
-                  background: `${tierColors[player.tier]}15`,
-                  color: tierColors[player.tier],
-                  border: `1px solid ${tierColors[player.tier]}30`,
-                }}
-              >
-                {player.tier}
-              </div>
-              <div className="text-right">
-                <div className="font-mono text-sm text-cyan-glow">Lv.{player.level}</div>
-                <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-                  <Flame className="w-3 h-3 text-coral-orange" />
-                  {player.streak}天
+            {/* My Ranking */}
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="bear-card p-6">
+              <h2 className="font-bold text-lg mb-4 flex items-center gap-2" style={{ color: "oklch(0.30 0.06 55)" }}>
+                <Star className="w-5 h-5" style={{ color: "oklch(0.65 0.15 85)" }} /> 我的排名
+              </h2>
+              <div className="flex items-center gap-4">
+                <motion.img
+                  src={BEAR_IMAGES.grizzly}
+                  alt="我的熊"
+                  className="w-16 h-16 object-contain"
+                  animate={{ y: [0, -4, 0] }}
+                  transition={{ duration: 2, repeat: Infinity }}
+                />
+                <div>
+                  <p className="font-black text-2xl" style={{ color: "oklch(0.52 0.09 55)" }}>#7</p>
+                  <p className="text-xs text-muted-foreground">黄金段位 · 4720 EXP</p>
+                  <p className="text-[10px] text-muted-foreground mt-1">距离第 6 名还差 <span className="font-bold" style={{ color: "oklch(0.52 0.09 55)" }}>780</span> 经验</p>
                 </div>
               </div>
             </motion.div>
-          ))}
+          </div>
         </div>
-      </GlowCard>
-    </div>
-  );
-}
-
-function GalleryView() {
-  return (
-    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-      {leaderboard.map((player, i) => (
-        <motion.div
-          key={player.rank}
-          initial={{ opacity: 0, scale: 0.9 }}
-          animate={{ opacity: 1, scale: 1 }}
-          transition={{ delay: i * 0.05 }}
-        >
-          <GlowCard
-            glowColor={player.tier === "王者" ? "gold" : player.tier === "钻石" || player.tier === "星耀" ? "orange" : "cyan"}
-            className="text-center py-5 group"
-          >
-            <div className="relative inline-block mb-3">
-              <div
-                className="absolute inset-0 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-                style={{
-                  background: `radial-gradient(circle, ${tierColors[player.tier]}30 0%, transparent 70%)`,
-                  transform: "scale(1.5)",
-                }}
-              />
-              <img
-                src={lobsterImages[player.tier]}
-                alt={player.lobsterName}
-                className="w-24 h-24 object-contain relative z-10 transition-transform duration-300 group-hover:scale-110"
-              />
-            </div>
-            <h3 className="font-display text-sm font-semibold text-foreground">{player.lobsterName}</h3>
-            <div className="text-xs text-muted-foreground mt-0.5">{player.name}</div>
-            <div
-              className="inline-block mt-2 px-2 py-0.5 rounded text-[10px] font-mono font-bold"
-              style={{
-                background: `${tierColors[player.tier]}15`,
-                color: tierColors[player.tier],
-                border: `1px solid ${tierColors[player.tier]}30`,
-              }}
-            >
-              {player.tier} · Lv.{player.level}
-            </div>
-          </GlowCard>
-        </motion.div>
-      ))}
+      </div>
     </div>
   );
 }

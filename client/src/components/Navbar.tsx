@@ -1,90 +1,118 @@
-/**
- * Navbar — 深海风格顶部导航栏
- * 玻璃拟态效果，带发光边框底线
+/*
+ * 裸熊 Agent 导航栏
+ * 风格：温暖治愈系，圆润柔和
  */
+import { useState } from "react";
 import { Link, useLocation } from "wouter";
-import { motion } from "framer-motion";
-import { MessageCircle, LayoutDashboard, Users, Home, Sparkles } from "lucide-react";
+import { motion, AnimatePresence } from "framer-motion";
+import { Menu, X, Home, MessageCircle, BarChart3, Users, Heart, BookOpen } from "lucide-react";
+import { BEAR_IMAGES } from "@/lib/bearAssets";
 
-const navItems = [
-  { path: "/", label: "首页", icon: Home },
-  { path: "/chat", label: "对话", icon: MessageCircle },
-  { path: "/dashboard", label: "养成", icon: LayoutDashboard },
-  { path: "/square", label: "广场", icon: Users },
-  { path: "/gallery", label: "展示库", icon: Sparkles },
+const navLinks = [
+  { href: "/", label: "熊窝首页", icon: Home },
+  { href: "/chat", label: "和熊聊天", icon: MessageCircle },
+  { href: "/dashboard", label: "成长看板", icon: BarChart3 },
+  { href: "/square", label: "熊熊广场", icon: Users },
+  { href: "/adopt", label: "领养小熊", icon: Heart },
+  { href: "/gallery", label: "熊熊图鉴", icon: BookOpen },
 ];
 
 export default function Navbar() {
   const [location] = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   return (
-    <motion.nav
-      initial={{ y: -20, opacity: 0 }}
-      animate={{ y: 0, opacity: 1 }}
-      transition={{ duration: 0.5 }}
-      className="fixed top-0 left-0 right-0 z-50 glass-card border-b border-cyan-glow/20"
-      style={{
-        background: "oklch(0.12 0.025 260 / 0.85)",
-        backdropFilter: "blur(20px)",
-      }}
-    >
+    <nav className="sticky top-0 z-50 backdrop-blur-md bg-white/80 border-b border-[oklch(0.52_0.09_55/0.1)]">
       <div className="container flex items-center justify-between h-16">
         {/* Logo */}
-        <Link href="/">
-          <div className="flex items-center gap-3 group">
-            <span className="text-2xl">🦞</span>
-            <span className="font-display font-bold text-lg text-cyan-glow text-glow-cyan tracking-wide">
-              龙虾 Agent
-            </span>
-          </div>
+        <Link href="/" className="flex items-center gap-2.5 group">
+          <img
+            src={BEAR_IMAGES.grizzly}
+            alt="裸熊 Agent"
+            className="w-9 h-9 rounded-full ring-2 ring-[oklch(0.52_0.09_55/0.2)] group-hover:ring-[oklch(0.52_0.09_55/0.5)] transition-all"
+          />
+          <span className="font-extrabold text-lg tracking-tight" style={{ color: "oklch(0.52 0.09 55)" }}>
+            裸熊 Agent
+          </span>
         </Link>
 
-        {/* Nav Links */}
-        <div className="flex items-center gap-1">
-          {navItems.map((item) => {
-            const isActive = location === item.path;
-            const Icon = item.icon;
+        {/* Desktop Nav */}
+        <div className="hidden md:flex items-center gap-1">
+          {navLinks.map((link) => {
+            const isActive = location === link.href;
+            const Icon = link.icon;
             return (
-              <Link key={item.path} href={item.path}>
-                <motion.div
+              <Link key={link.href} href={link.href}>
+                <motion.span
                   whileHover={{ scale: 1.05 }}
                   whileTap={{ scale: 0.95 }}
-                  className={`
-                    relative flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-300
-                    ${isActive
-                      ? "text-cyan-glow glow-cyan"
-                      : "text-muted-foreground hover:text-foreground"
-                    }
-                  `}
+                  className={`relative flex items-center gap-1.5 px-3.5 py-2 rounded-full text-sm font-semibold transition-all duration-300 ${
+                    isActive
+                      ? "text-white shadow-md"
+                      : "text-foreground/70 hover:bg-[oklch(0.52_0.09_55/0.08)]"
+                  }`}
+                  style={isActive ? { background: "oklch(0.52 0.09 55)" } : {}}
                 >
                   <Icon className="w-4 h-4" />
-                  <span className="hidden sm:inline">{item.label}</span>
+                  {link.label}
                   {isActive && (
                     <motion.div
-                      layoutId="nav-indicator"
-                      className="absolute inset-0 rounded-lg border border-cyan-glow/30"
-                      style={{ background: "oklch(0.82 0.15 195 / 0.08)" }}
+                      layoutId="nav-pill"
+                      className="absolute inset-0 rounded-full -z-10"
+                      style={{ background: "oklch(0.52 0.09 55)" }}
                       transition={{ type: "spring", stiffness: 300, damping: 30 }}
                     />
                   )}
-                </motion.div>
+                </motion.span>
               </Link>
             );
           })}
         </div>
 
-        {/* User Avatar */}
-        <div className="flex items-center gap-3">
-          <motion.button
-            whileHover={{ scale: 1.1 }}
-            whileTap={{ scale: 0.9 }}
-            className="w-9 h-9 rounded-full flex items-center justify-center text-lg border border-cyan-glow/30 glow-cyan"
-            style={{ background: "oklch(0.2 0.03 260)" }}
-          >
-            🦊
-          </motion.button>
-        </div>
+        {/* Mobile Toggle */}
+        <button
+          className="md:hidden p-2 rounded-xl hover:bg-[oklch(0.52_0.09_55/0.1)] transition"
+          style={{ color: "oklch(0.52 0.09 55)" }}
+          onClick={() => setMobileOpen(!mobileOpen)}
+        >
+          {mobileOpen ? <X size={22} /> : <Menu size={22} />}
+        </button>
       </div>
-    </motion.nav>
+
+      {/* Mobile Menu */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <motion.div
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="md:hidden overflow-hidden bg-white/95 backdrop-blur-md border-b border-[oklch(0.52_0.09_55/0.1)]"
+          >
+            <div className="container py-3 flex flex-col gap-1">
+              {navLinks.map((link) => {
+                const isActive = location === link.href;
+                const Icon = link.icon;
+                return (
+                  <Link key={link.href} href={link.href}>
+                    <span
+                      onClick={() => setMobileOpen(false)}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all ${
+                        isActive
+                          ? "text-white"
+                          : "text-foreground/70 hover:bg-[oklch(0.52_0.09_55/0.08)]"
+                      }`}
+                      style={isActive ? { background: "oklch(0.52 0.09 55)" } : {}}
+                    >
+                      <Icon className="w-4 h-4" />
+                      {link.label}
+                    </span>
+                  </Link>
+                );
+              })}
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </nav>
   );
 }

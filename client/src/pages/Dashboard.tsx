@@ -1,49 +1,41 @@
-/**
- * Dashboard — 养成看板
- * 设计风格：深海生物发光 (Bioluminescence)
- * 卡片式仪表盘，展示龙虾属性、学习数据和成就
+/*
+ * 裸熊 Agent — 成长看板
+ * 温暖治愈系风格，展示小熊成长数据
  */
 import { motion } from "framer-motion";
-import { Brain, Zap, Shield, Star, TrendingUp, Calendar, MessageCircle, Award } from "lucide-react";
+import { Brain, Zap, Shield, Clock, MessageCircle, Trophy, Star, TrendingUp, Award } from "lucide-react";
 import Navbar from "@/components/Navbar";
-import ParticleBackground from "@/components/ParticleBackground";
-import GlowCard from "@/components/GlowCard";
-
-const LOBSTER_HERO = "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/lobster-hero-5E7aSMe59zcws2kjVc7LDP.webp";
-
-const TIER_NAMES = ["青铜", "白银", "黄金", "铂金", "钻石", "星耀", "王者"];
+import { BEAR_IMAGES, BEAR_TIERS } from "@/lib/bearAssets";
 
 const weeklyData = [
-  { day: "周一", value: 45 },
-  { day: "周二", value: 62 },
-  { day: "周三", value: 38 },
-  { day: "周四", value: 71 },
-  { day: "周五", value: 55 },
-  { day: "周六", value: 80 },
-  { day: "周日", value: 30 },
+  { day: "周一", chats: 12, minutes: 45 },
+  { day: "周二", chats: 8, minutes: 30 },
+  { day: "周三", chats: 15, minutes: 55 },
+  { day: "周四", chats: 6, minutes: 20 },
+  { day: "周五", chats: 18, minutes: 65 },
+  { day: "周六", chats: 22, minutes: 80 },
+  { day: "周日", chats: 10, minutes: 35 },
 ];
 
 const achievements = [
-  { icon: "🌊", name: "初入深海", desc: "完成第一次对话", unlocked: true },
-  { icon: "🔥", name: "连续学习", desc: "连续 7 天学习", unlocked: true },
-  { icon: "💎", name: "知识宝石", desc: "累计对话 100 次", unlocked: true },
-  { icon: "⚡", name: "闪电问答", desc: "单次对话超过 20 轮", unlocked: false },
-  { icon: "🏆", name: "黄金段位", desc: "达到黄金段位", unlocked: true },
-  { icon: "👑", name: "王者之路", desc: "达到王者段位", unlocked: false },
+  { name: "初次对话", desc: "和小熊完成第一次对话", icon: MessageCircle, unlocked: true },
+  { name: "学习达人", desc: "累计学习 10 小时", icon: Clock, unlocked: true },
+  { name: "好奇宝宝", desc: "提出 100 个问题", icon: Star, unlocked: true },
+  { name: "知识猎人", desc: "掌握 5 个学科领域", icon: Trophy, unlocked: false },
+  { name: "连续学习", desc: "连续 7 天学习打卡", icon: TrendingUp, unlocked: false },
 ];
 
 const recentSubjects = [
-  { name: "数学", count: 45, color: "oklch(0.82 0.15 195)" },
-  { name: "物理", count: 32, color: "oklch(0.82 0.16 160)" },
-  { name: "英语", count: 28, color: "oklch(0.7 0.18 40)" },
-  { name: "化学", count: 15, color: "oklch(0.85 0.15 85)" },
+  { name: "数学", count: 45, color: "oklch(0.52 0.09 55)" },
+  { name: "物理", count: 32, color: "oklch(0.50 0.10 155)" },
+  { name: "英语", count: 28, color: "oklch(0.78 0.08 230)" },
+  { name: "化学", count: 15, color: "oklch(0.65 0.20 15)" },
 ];
 
 export default function Dashboard() {
-  const lobster = {
-    name: "小龙虾",
-    tier: "黄金",
-    segment: "II",
+  const currentTier = BEAR_TIERS[2];
+  const bear = {
+    name: "大大",
     level: 10,
     exp: 720,
     maxExp: 1000,
@@ -56,297 +48,228 @@ export default function Dashboard() {
   };
 
   return (
-    <div className="min-h-screen relative">
-      <ParticleBackground count={20} />
+    <div className="min-h-screen bg-background">
       <Navbar />
 
-      <div className="pt-24 pb-12">
-        <div className="container space-y-8">
-          {/* Header */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="space-y-2"
-          >
-            <h1 className="font-display text-3xl font-bold text-foreground">养成看板</h1>
-            <p className="text-muted-foreground">查看你的龙虾成长数据和学习记录</p>
+      <div className="container py-8">
+        {/* Header */}
+        <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="mb-8">
+          <h1 className="text-3xl font-black" style={{ color: "oklch(0.30 0.06 55)" }}>成长看板</h1>
+          <p className="text-muted-foreground mt-1">追踪你和小熊的学习旅程</p>
+        </motion.div>
+
+        {/* Top: Bear Profile + Stats */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+          {/* Bear Profile */}
+          <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }} className="bear-card p-6 text-center">
+            <motion.img
+              src={BEAR_IMAGES.grizzly}
+              alt="大大"
+              className="w-36 h-36 mx-auto mb-4 object-contain"
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 3, repeat: Infinity }}
+            />
+            <h2 className="text-xl font-black" style={{ color: "oklch(0.30 0.06 55)" }}>{bear.name}</h2>
+            <div className="flex items-center justify-center gap-2 mt-2">
+              <span className="px-3 py-1 rounded-full text-xs font-bold" style={{ background: currentTier.bgColor, color: currentTier.color }}>
+                {currentTier.rank} · {currentTier.name}
+              </span>
+              <span className="text-sm text-muted-foreground">Lv.{bear.level}</span>
+            </div>
+            <p className="text-xs text-muted-foreground mt-2">{currentTier.description}</p>
+
+            <div className="mt-5 space-y-2">
+              <div className="flex justify-between text-xs">
+                <span className="text-muted-foreground">经验值</span>
+                <span className="font-mono font-bold" style={{ color: currentTier.color }}>{bear.exp}/{bear.maxExp}</span>
+              </div>
+              <div className="h-3 rounded-full overflow-hidden bg-[oklch(0.52_0.09_55/0.1)]">
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${(bear.exp / bear.maxExp) * 100}%` }}
+                  transition={{ duration: 1.5 }}
+                  className="h-full rounded-full"
+                  style={{ background: `linear-gradient(90deg, ${currentTier.color}, oklch(0.75 0.12 65))` }}
+                />
+              </div>
+              <p className="text-[10px] text-muted-foreground">距离下一段位还需 {bear.maxExp - bear.exp} 经验</p>
+            </div>
           </motion.div>
 
-          {/* Top Row: Lobster Card + Quick Stats */}
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Lobster Profile Card */}
-            <GlowCard glowColor="cyan" className="lg:col-span-1" delay={0.1}>
-              <div className="text-center space-y-4">
-                <div className="relative inline-block">
-                  <div
-                    className="absolute inset-0 rounded-full animate-pulse-glow"
-                    style={{
-                      background: "radial-gradient(circle, oklch(0.82 0.15 195 / 0.2) 0%, transparent 70%)",
-                      transform: "scale(1.5)",
-                    }}
-                  />
-                  <img
-                    src={LOBSTER_HERO}
-                    alt="龙虾"
-                    className="w-36 h-36 object-contain animate-breathe relative z-10"
-                  />
-                </div>
-
-                <div>
-                  <h2 className="font-display text-2xl font-bold text-foreground">{lobster.name}</h2>
-                  <div className="flex items-center justify-center gap-2 mt-2">
-                    <span
-                      className="px-3 py-1 rounded-md text-sm font-mono font-bold"
-                      style={{
-                        background: "oklch(0.85 0.15 85 / 0.15)",
-                        color: "oklch(0.85 0.15 85)",
-                        border: "1px solid oklch(0.85 0.15 85 / 0.3)",
-                      }}
-                    >
-                      {lobster.tier} {lobster.segment}
-                    </span>
-                    <span className="text-sm text-muted-foreground font-mono">Lv.{lobster.level}</span>
+          {/* Stats Grid */}
+          <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {[
+              { icon: Brain, label: "智慧值", value: "85", color: "oklch(0.52 0.09 55)", bg: "oklch(0.52 0.09 55 / 0.08)" },
+              { icon: Zap, label: "技术值", value: "62", color: "oklch(0.50 0.10 155)", bg: "oklch(0.50 0.10 155 / 0.08)" },
+              { icon: Clock, label: "学习时长", value: "48h", color: "oklch(0.78 0.08 230)", bg: "oklch(0.78 0.08 230 / 0.12)" },
+              { icon: MessageCircle, label: "对话次数", value: "326", color: "oklch(0.65 0.20 15)", bg: "oklch(0.65 0.20 15 / 0.08)" },
+            ].map((stat, i) => {
+              const Icon = stat.icon;
+              return (
+                <motion.div key={stat.label} initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.3 + i * 0.1 }} className="bear-card p-5 text-center">
+                  <div className="w-11 h-11 rounded-2xl flex items-center justify-center mx-auto mb-3" style={{ background: stat.bg }}>
+                    <Icon className="w-5 h-5" style={{ color: stat.color }} />
                   </div>
-                </div>
+                  <p className="text-2xl font-black" style={{ color: stat.color }}>{stat.value}</p>
+                  <p className="text-xs text-muted-foreground mt-1">{stat.label}</p>
+                </motion.div>
+              );
+            })}
 
-                {/* EXP */}
-                <div className="space-y-2">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-muted-foreground">经验值</span>
-                    <span className="font-mono text-cyan-glow">{lobster.exp}/{lobster.maxExp}</span>
-                  </div>
-                  <div className="h-3 rounded-full overflow-hidden" style={{ background: "oklch(0.2 0.03 260)" }}>
-                    <motion.div
-                      initial={{ width: 0 }}
-                      animate={{ width: `${(lobster.exp / lobster.maxExp) * 100}%` }}
-                      transition={{ duration: 1.5, ease: "easeOut" }}
-                      className="h-full rounded-full relative"
-                      style={{ background: "linear-gradient(90deg, oklch(0.82 0.15 195), oklch(0.82 0.16 160))" }}
-                    >
-                      <div
-                        className="absolute inset-0 animate-shimmer"
-                        style={{ background: "linear-gradient(90deg, transparent, oklch(1 0 0 / 0.2), transparent)" }}
-                      />
-                    </motion.div>
-                  </div>
-                </div>
-
-                {/* Tier Progress */}
-                <div className="flex justify-between items-center pt-2">
-                  {TIER_NAMES.map((t, i) => (
-                    <div key={t} className="flex flex-col items-center gap-1">
-                      <div
-                        className={`w-4 h-4 rounded-full ${i <= 2 ? "glow-cyan" : ""}`}
-                        style={{
-                          background: i <= 2 ? "oklch(0.82 0.15 195)" : "oklch(0.25 0.03 260)",
-                          border: i === 2 ? "2px solid oklch(0.85 0.15 85)" : "none",
-                        }}
-                      />
-                      <span className={`text-[9px] ${i <= 2 ? "text-cyan-glow" : "text-muted-foreground/50"}`}>{t}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            </GlowCard>
-
-            {/* Quick Stats Grid */}
-            <div className="lg:col-span-2 grid grid-cols-2 gap-4">
-              <QuickStat icon={MessageCircle} label="总对话数" value={lobster.totalChats} unit="次" color="cyan" delay={0.15} />
-              <QuickStat icon={Calendar} label="连续学习" value={lobster.streak} unit="天" color="orange" delay={0.2} />
-              <QuickStat icon={Star} label="累计经验" value={lobster.totalExp} unit="EXP" color="gold" delay={0.25} />
-              <QuickStat icon={TrendingUp} label="本周进步" value={23} unit="%" color="mint" delay={0.3} />
-            </div>
-          </div>
-
-          {/* Middle Row: Attributes + Weekly Chart */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Attributes */}
-            <GlowCard glowColor="cyan" delay={0.3}>
-              <h3 className="font-display text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Brain className="w-5 h-5 text-cyan-glow" />
-                能力属性
-              </h3>
-              <div className="space-y-5">
-                <AttributeBar label="智慧" value={lobster.wisdom} max={100} color="oklch(0.82 0.15 195)" icon="🧠" />
-                <AttributeBar label="技术" value={lobster.tech} max={100} color="oklch(0.82 0.16 160)" icon="⚡" />
-                <AttributeBar label="耐力" value={lobster.stamina} max={100} color="oklch(0.7 0.18 40)" icon="🛡️" />
-                <AttributeBar label="魅力" value={38} max={100} color="oklch(0.85 0.15 85)" icon="✨" />
-              </div>
-            </GlowCard>
-
-            {/* Weekly Activity */}
-            <GlowCard glowColor="mint" delay={0.35}>
-              <h3 className="font-display text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <TrendingUp className="w-5 h-5 text-mint-glow" />
-                本周学习时长
-              </h3>
-              <div className="flex items-end justify-between gap-2 h-40 mt-4">
+            {/* Weekly Chart */}
+            <div className="col-span-2 sm:col-span-4 bear-card p-5">
+              <h3 className="font-bold text-sm mb-4" style={{ color: "oklch(0.30 0.06 55)" }}>本周学习统计</h3>
+              <div className="flex items-end gap-3 h-32">
                 {weeklyData.map((d, i) => (
-                  <div key={d.day} className="flex-1 flex flex-col items-center gap-2">
+                  <div key={d.day} className="flex-1 flex flex-col items-center gap-1">
                     <motion.div
                       initial={{ height: 0 }}
-                      animate={{ height: `${(d.value / 100) * 100}%` }}
-                      transition={{ duration: 0.8, delay: 0.4 + i * 0.1 }}
-                      className="w-full rounded-t-md relative overflow-hidden"
-                      style={{
-                        background: `linear-gradient(to top, oklch(0.82 0.15 195 / 0.6), oklch(0.82 0.16 160 / 0.3))`,
-                        border: "1px solid oklch(0.82 0.15 195 / 0.2)",
-                        minHeight: "4px",
-                      }}
+                      animate={{ height: `${(d.minutes / 80) * 100}%` }}
+                      transition={{ delay: 0.5 + i * 0.08, duration: 0.6 }}
+                      className="w-full rounded-t-lg min-h-[4px]"
+                      style={{ background: `oklch(0.52 0.09 55 / ${0.3 + (d.minutes / 80) * 0.7})` }}
                     />
                     <span className="text-[10px] text-muted-foreground">{d.day}</span>
                   </div>
                 ))}
               </div>
-              <div className="flex justify-between mt-4 text-xs text-muted-foreground">
-                <span>总计 <span className="text-cyan-glow font-mono">381</span> 分钟</span>
-                <span>日均 <span className="text-mint-glow font-mono">54</span> 分钟</span>
-              </div>
-            </GlowCard>
+            </div>
           </div>
+        </div>
 
-          {/* Bottom Row: Achievements + Subject Distribution */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Achievements */}
-            <GlowCard glowColor="gold" delay={0.4}>
-              <h3 className="font-display text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Award className="w-5 h-5 text-amber-gold" />
-                成就徽章
-              </h3>
-              <div className="grid grid-cols-3 gap-3">
-                {achievements.map((a) => (
-                  <motion.div
-                    key={a.name}
-                    whileHover={{ scale: a.unlocked ? 1.05 : 1 }}
-                    className={`text-center p-3 rounded-lg transition-all ${
-                      a.unlocked ? "" : "opacity-40 grayscale"
-                    }`}
-                    style={{
-                      background: a.unlocked ? "oklch(0.85 0.15 85 / 0.08)" : "oklch(0.2 0.02 260)",
-                      border: `1px solid ${a.unlocked ? "oklch(0.85 0.15 85 / 0.2)" : "oklch(0.25 0.03 260)"}`,
-                    }}
-                  >
-                    <span className="text-2xl">{a.icon}</span>
-                    <div className="text-xs font-medium text-foreground mt-1">{a.name}</div>
-                    <div className="text-[10px] text-muted-foreground mt-0.5">{a.desc}</div>
-                  </motion.div>
-                ))}
-              </div>
-            </GlowCard>
-
-            {/* Subject Distribution */}
-            <GlowCard glowColor="orange" delay={0.45}>
-              <h3 className="font-display text-lg font-semibold text-foreground mb-4 flex items-center gap-2">
-                <Zap className="w-5 h-5 text-coral-orange" />
-                学科分布
-              </h3>
-              <div className="space-y-4">
-                {recentSubjects.map((s) => {
-                  const total = recentSubjects.reduce((sum, x) => sum + x.count, 0);
-                  const pct = Math.round((s.count / total) * 100);
-                  return (
-                    <div key={s.name} className="space-y-1.5">
-                      <div className="flex justify-between text-sm">
-                        <span className="text-foreground font-medium">{s.name}</span>
-                        <span className="font-mono text-xs" style={{ color: s.color }}>{s.count} 次 · {pct}%</span>
-                      </div>
-                      <div className="h-2 rounded-full overflow-hidden" style={{ background: "oklch(0.2 0.03 260)" }}>
-                        <motion.div
-                          initial={{ width: 0 }}
-                          animate={{ width: `${pct}%` }}
-                          transition={{ duration: 1, ease: "easeOut" }}
-                          className="h-full rounded-full"
-                          style={{ background: s.color }}
-                        />
-                      </div>
+        {/* Attributes + Subjects */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
+          {/* Attributes */}
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="bear-card p-6">
+            <h3 className="font-bold text-lg mb-5 flex items-center gap-2" style={{ color: "oklch(0.30 0.06 55)" }}>
+              <Brain className="w-5 h-5" style={{ color: "oklch(0.52 0.09 55)" }} /> 能力属性
+            </h3>
+            <div className="space-y-5">
+              {[
+                { label: "智慧", value: bear.wisdom, color: "oklch(0.52 0.09 55)", icon: Brain },
+                { label: "技术", value: bear.tech, color: "oklch(0.50 0.10 155)", icon: Zap },
+                { label: "耐力", value: bear.stamina, color: "oklch(0.75 0.12 65)", icon: Shield },
+              ].map((attr) => {
+                const Icon = attr.icon;
+                return (
+                  <div key={attr.label} className="space-y-1.5">
+                    <div className="flex items-center justify-between text-sm">
+                      <span className="flex items-center gap-1.5 text-muted-foreground">
+                        <Icon className="w-4 h-4" style={{ color: attr.color }} /> {attr.label}
+                      </span>
+                      <span className="font-mono font-bold" style={{ color: attr.color }}>{attr.value}/100</span>
                     </div>
-                  );
-                })}
-              </div>
-            </GlowCard>
+                    <div className="h-2.5 rounded-full overflow-hidden bg-[oklch(0.52_0.09_55/0.08)]">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        whileInView={{ width: `${attr.value}%` }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 1.2 }}
+                        className="h-full rounded-full"
+                        style={{ background: attr.color }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+
+          {/* Subject Distribution */}
+          <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="bear-card p-6">
+            <h3 className="font-bold text-lg mb-5 flex items-center gap-2" style={{ color: "oklch(0.30 0.06 55)" }}>
+              <Zap className="w-5 h-5" style={{ color: "oklch(0.50 0.10 155)" }} /> 学科分布
+            </h3>
+            <div className="space-y-4">
+              {recentSubjects.map((s) => {
+                const total = recentSubjects.reduce((sum, x) => sum + x.count, 0);
+                const pct = Math.round((s.count / total) * 100);
+                return (
+                  <div key={s.name} className="space-y-1.5">
+                    <div className="flex justify-between text-sm">
+                      <span className="font-medium" style={{ color: "oklch(0.30 0.06 55)" }}>{s.name}</span>
+                      <span className="font-mono text-xs" style={{ color: s.color }}>{s.count} 次 · {pct}%</span>
+                    </div>
+                    <div className="h-2.5 rounded-full overflow-hidden bg-[oklch(0.52_0.09_55/0.08)]">
+                      <motion.div
+                        initial={{ width: 0 }}
+                        whileInView={{ width: `${pct}%` }}
+                        viewport={{ once: true }}
+                        transition={{ duration: 1 }}
+                        className="h-full rounded-full"
+                        style={{ background: s.color }}
+                      />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </motion.div>
+        </div>
+
+        {/* Achievements */}
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }}>
+          <h2 className="text-xl font-black mb-4 flex items-center gap-2" style={{ color: "oklch(0.30 0.06 55)" }}>
+            <Award className="w-5 h-5" style={{ color: "oklch(0.65 0.15 85)" }} /> 成就系统
+          </h2>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {achievements.map((ach, i) => {
+              const Icon = ach.icon;
+              return (
+                <motion.div
+                  key={ach.name}
+                  initial={{ opacity: 0, y: 10 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ delay: i * 0.08 }}
+                  className={`bear-card p-4 flex items-center gap-4 ${!ach.unlocked ? "opacity-50" : ""}`}
+                >
+                  <div
+                    className="w-12 h-12 rounded-2xl flex items-center justify-center shrink-0"
+                    style={{ background: ach.unlocked ? "oklch(0.80 0.15 85 / 0.15)" : "oklch(0.90 0.01 85)" }}
+                  >
+                    <Icon className="w-6 h-6" style={{ color: ach.unlocked ? "oklch(0.65 0.15 85)" : "oklch(0.70 0.01 85)" }} />
+                  </div>
+                  <div>
+                    <h4 className="font-bold text-sm" style={{ color: "oklch(0.30 0.06 55)" }}>{ach.name}</h4>
+                    <p className="text-xs text-muted-foreground">{ach.desc}</p>
+                  </div>
+                  {ach.unlocked && (
+                    <span className="ml-auto text-xs font-bold px-2 py-0.5 rounded-full" style={{ background: "oklch(0.50 0.10 155 / 0.1)", color: "oklch(0.40 0.10 155)" }}>
+                      已解锁
+                    </span>
+                  )}
+                </motion.div>
+              );
+            })}
           </div>
-        </div>
-      </div>
-    </div>
-  );
-}
+        </motion.div>
 
-function QuickStat({
-  icon: Icon,
-  label,
-  value,
-  unit,
-  color,
-  delay,
-}: {
-  icon: any;
-  label: string;
-  value: number;
-  unit: string;
-  color: "cyan" | "orange" | "gold" | "mint";
-  delay: number;
-}) {
-  const colorMap = {
-    cyan: "oklch(0.82 0.15 195)",
-    orange: "oklch(0.7 0.18 40)",
-    gold: "oklch(0.85 0.15 85)",
-    mint: "oklch(0.82 0.16 160)",
-  };
-  const c = colorMap[color];
-
-  return (
-    <GlowCard glowColor={color} delay={delay} className="flex items-center gap-4">
-      <div
-        className="w-12 h-12 rounded-lg flex items-center justify-center shrink-0"
-        style={{ background: `${c.replace(")", " / 0.1)")}`, border: `1px solid ${c.replace(")", " / 0.2)")}` }}
-      >
-        <Icon className="w-6 h-6" style={{ color: c }} />
-      </div>
-      <div>
-        <div className="text-xs text-muted-foreground">{label}</div>
-        <div className="font-mono text-2xl font-bold" style={{ color: c }}>
-          {value.toLocaleString()}
-          <span className="text-xs text-muted-foreground ml-1 font-sans">{unit}</span>
-        </div>
-      </div>
-    </GlowCard>
-  );
-}
-
-function AttributeBar({
-  label,
-  value,
-  max,
-  color,
-  icon,
-}: {
-  label: string;
-  value: number;
-  max: number;
-  color: string;
-  icon: string;
-}) {
-  return (
-    <div className="space-y-1.5">
-      <div className="flex items-center justify-between text-sm">
-        <div className="flex items-center gap-2">
-          <span>{icon}</span>
-          <span className="text-foreground font-medium">{label}</span>
-        </div>
-        <span className="font-mono text-sm" style={{ color }}>{value}/{max}</span>
-      </div>
-      <div className="h-2.5 rounded-full overflow-hidden" style={{ background: "oklch(0.2 0.03 260)" }}>
-        <motion.div
-          initial={{ width: 0 }}
-          animate={{ width: `${(value / max) * 100}%` }}
-          transition={{ duration: 1.2, ease: "easeOut" }}
-          className="h-full rounded-full relative"
-          style={{ background: color }}
-        >
-          <div
-            className="absolute inset-0 animate-shimmer"
-            style={{ background: "linear-gradient(90deg, transparent, oklch(1 0 0 / 0.15), transparent)" }}
-          />
+        {/* Tier Roadmap */}
+        <motion.div initial={{ opacity: 0, y: 20 }} whileInView={{ opacity: 1, y: 0 }} viewport={{ once: true }} className="mt-8">
+          <h2 className="text-xl font-black mb-4" style={{ color: "oklch(0.30 0.06 55)" }}>段位进化之路</h2>
+          <div className="flex items-center gap-2 overflow-x-auto pb-4">
+            {BEAR_TIERS.map((tier, i) => {
+              const isCurrent = i === 2;
+              const isPast = i < 2;
+              return (
+                <div key={tier.rank} className="flex items-center shrink-0">
+                  <motion.div
+                    whileHover={{ scale: 1.05 }}
+                    className={`bear-card p-3 text-center w-28 ${isCurrent ? "ring-2" : ""}`}
+                    style={isCurrent ? { borderColor: tier.color, boxShadow: `0 0 12px ${tier.color}30` } : {}}
+                  >
+                    <img src={tier.image} alt={tier.name} className="w-14 h-14 mx-auto mb-1 object-contain" />
+                    <p className="text-xs font-bold" style={{ color: isPast || isCurrent ? tier.color : "oklch(0.70 0.01 85)" }}>{tier.name}</p>
+                    <p className="text-[10px] text-muted-foreground">{tier.rank}</p>
+                  </motion.div>
+                  {i < BEAR_TIERS.length - 1 && (
+                    <div className="w-6 h-0.5 mx-1" style={{ background: isPast ? "oklch(0.52 0.09 55)" : "oklch(0.90 0.01 85)" }} />
+                  )}
+                </div>
+              );
+            })}
+          </div>
         </motion.div>
       </div>
     </div>

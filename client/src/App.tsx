@@ -9,7 +9,7 @@ import Chat from "./pages/Chat";
 import Dashboard from "./pages/Dashboard";
 import Square from "./pages/Square";
 import Adopt from "./pages/Adopt";
-import LobsterGallery from "./pages/LobsterGallery";
+import BearGallery from "./pages/BearGallery";
 
 function Router() {
   return (
@@ -19,7 +19,7 @@ function Router() {
       <Route path="/dashboard" component={Dashboard} />
       <Route path="/square" component={Square} />
       <Route path="/adopt" component={Adopt} />
-      <Route path="/gallery" component={LobsterGallery} />
+      <Route path="/gallery" component={BearGallery} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
@@ -29,7 +29,7 @@ function Router() {
 function App() {
   return (
     <ErrorBoundary>
-      <ThemeProvider defaultTheme="dark">
+      <ThemeProvider defaultTheme="light">
         <TooltipProvider>
           <Toaster />
           <Router />
