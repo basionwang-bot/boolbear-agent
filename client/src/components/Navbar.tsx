@@ -4,13 +4,14 @@
  */
 import { Link, useLocation } from "wouter";
 import { motion } from "framer-motion";
-import { MessageCircle, LayoutDashboard, Users, Home } from "lucide-react";
+import { MessageCircle, LayoutDashboard, Users, Home, Sparkles } from "lucide-react";
 
 const navItems = [
   { path: "/", label: "首页", icon: Home },
   { path: "/chat", label: "对话", icon: MessageCircle },
   { path: "/dashboard", label: "养成", icon: LayoutDashboard },
   { path: "/square", label: "广场", icon: Users },
+  { path: "/gallery", label: "展示库", icon: Sparkles },
 ];
 
 export default function Navbar() {
