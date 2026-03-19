@@ -1,35 +1,37 @@
-// 熊 Agent 原创资源库 — 所有熊形象的 CDN URL 集中管理
-// 设计风格：圆润Q版探险家熊，戴探险帽+绿色书包，原创设计避免侵权
+/*
+ * 熊 Agent 资源库 — 所有图片、段位、情绪、皮肤配置
+ * 设计风格：圆润Q版探险家熊，戴探险帽+绿色书包，原创设计避免侵权
+ */
 
 export const BEAR_IMAGES = {
   // 三只主角（原创设计）
-  grizzly: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/bear-original-grizzly-9Yt6bVkLdqjVSXgfwxqXWj.webp",
-  panda: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/bear-original-panda-LuLGjnBVkCxoMNPkWzAjjP.webp",
-  polar: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/bear-original-polar-6Dj2tPVLMWXSxCHKLLWqvn.webp",
-  group: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/bear-original-group-DjwJqmMvqaYQDZkfpFfJEJ.webp",
+  grizzly: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/bear-original-grizzly_e1f9952c.png",
+  panda: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/bear-original-panda_49fa199d.png",
+  polar: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/bear-original-polar_c10041d3.png",
+  group: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/bear-original-group_c3b5a5d7.png",
 
   // 背景（全新场景）
-  heroBg: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/hero-forest-v2-D45SverPmc8LDNpMAHpfed.webp",
-  chatBg: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/chat-bg-v2-TwCrkX2hCF2soeMi8wAbe9.webp",
-  dashboardBg: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/dashboard-bg-4VPHFNvJDwz5YbLgkiurbk.webp",
-  squareBg: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/square-bg-igSbG5rJFpERFbfngnLszf.webp",
-  adoptBg: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/adopt-bg-nyrGAht64cGbQQNTN4Rbgh.webp",
+  heroBg: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/hero-forest-v2_2c75b0be.png",
+  chatBg: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/chat-bg-v2_d8964945.png",
+  dashboardBg: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/dashboard-bg_41e245ee.png",
+  squareBg: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/square-bg_2336c5fa.png",
+  adoptBg: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/adopt-bg_b5a1e544.png",
 
   // 7个段位熊（完整进化序列）
-  bronzeTier: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/tier-bronze-bear-iWGjfgUbncJ7HvgsBY4mo5.webp",
-  silverTier: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/tier-silver-bear-Cifhayd9QNvAfqktguGfB8.webp",
-  goldTier: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/tier-gold-bear-5MvNemTSRQGKtrsKUDBj5Q.webp",
-  platinumTier: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/tier-platinum-bear-CG5QW98w7JpEYzuowsPB5C.webp",
-  diamondTier: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/tier-diamond-bear-AnbPftDDmSDVoAWcvL2JWi.webp",
-  starlightTier: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/tier-starlight-bear-6SFu87UNXbYX36gudA3wKb.webp",
-  kingTier: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/tier-king-bear-REDiAtAdLZnAwg45EGiCyJ.webp",
+  bronzeTier: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/tier-bronze-bear_b4ee87e6.png",
+  silverTier: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/tier-silver-bear_8d421daa.png",
+  goldTier: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/tier-gold-bear_10149f28.png",
+  platinumTier: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/tier-platinum-bear_f94e4747.png",
+  diamondTier: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/tier-diamond-bear_25eb9f23.png",
+  starlightTier: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/tier-starlight-bear_b5c70c45.png",
+  kingTier: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/tier-king-bear_94a2b121.png",
 
   // 情绪状态（5种）
-  happy: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/emotion-happy-bear-RXUNmrZ5Sr5NdcM6SxSoAf.webp",
-  thinking: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/emotion-thinking-bear-RsDCCgkLmY3nJ5SbT6AUEX.webp",
-  tired: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/emotion-tired-bear-XoSH8n59AXanujWGskm9JD.webp",
-  levelUp: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/emotion-levelup-bear-VupDrY2ykN9htKgdUw7mEd.webp",
-  studying: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/emotion-studying-bear-g2FvfM8gFf6XCwzhq8hgMX.webp",
+  happy: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/emotion-happy-bear_71ffc50f.png",
+  thinking: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/emotion-thinking-bear_912fe46c.png",
+  tired: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/emotion-tired-bear_abeb8d80.png",
+  levelUp: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/emotion-levelup-bear_cba43b18.png",
+  studying: "https://d2xsxph8kpxj0f.cloudfront.net/310519663363113146/4byKXnSfmNJ8D24Qt3bNEe/emotion-studying-bear_58ab8f78.png",
 };
 
 export interface BearTier {
