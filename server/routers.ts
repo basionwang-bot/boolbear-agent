@@ -196,14 +196,14 @@ const bearRouter = router({
 
   /** Get current user's bear */
   mine: protectedProcedure.query(async ({ ctx }) => {
-    return db.getBearByUserId(ctx.user.id);
+    return db.getBearByUserId(ctx.user.id) ?? null;
   }),
 
   /** Get bear by user ID (for admin/square) */
   getByUserId: protectedProcedure
     .input(z.object({ userId: z.number() }))
     .query(async ({ input }) => {
-      return db.getBearByUserId(input.userId);
+      return db.getBearByUserId(input.userId) ?? null;
     }),
 
   /** Leaderboard: top bears */
