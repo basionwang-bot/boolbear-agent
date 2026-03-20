@@ -302,6 +302,19 @@ const adminRouter = router({
     }));
     return result;
   }),
+
+  /** Delete a user and all their related data */
+  deleteUser: adminProcedure
+    .input(z.object({ userId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      try {
+        const result = await db.deleteUserAndRelatedData(input.userId);
+        return result;
+      } catch (error) {
+        console.error("[Admin] Error deleting user:", error);
+        throw new TRPCError({ code: "INTERNAL_SERVER_ERROR", message: "删除用户失败" });
+      }
+    }),
 });
 
 // ==================== APP ROUTER ====================

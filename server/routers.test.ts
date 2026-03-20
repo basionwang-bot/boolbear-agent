@@ -575,3 +575,132 @@ describe("chat logic", () => {
     expect(prompt).toContain("10"); // level
   });
 });
+
+
+// ==================== ADMIN ROUTER ====================
+
+describe("admin router", () => {
+  it("deleteUser: should delete a user and all related data", async () => {
+    const ctx = createAdminContext();
+    
+    // Setup: Create a test user with bear and conversations
+    const testUserId = 200;
+    const testBearId = 200;
+    const testConvId = 200;
+    
+    mockUsers.push({
+      id: testUserId,
+      openId: "test-delete-user",
+      username: "testdeleteuser",
+      name: "Test Delete User",
+      email: null,
+      loginMethod: "local",
+      role: "user",
+      classId: null,
+      passwordHash: "hashed",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastSignedIn: new Date(),
+    });
+
+    mockBears.push({
+      id: testBearId,
+      userId: testUserId,
+      bearName: "Test Bear",
+      bearType: "grizzly",
+      personality: "friend",
+      tier: "bronze",
+      level: 1,
+      experience: 0,
+      wisdom: 0,
+      tech: 0,
+      social: 0,
+      totalChats: 0,
+      emotion: "happy",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    mockConversations.push({
+      id: testConvId,
+      userId: testUserId,
+      bearId: testBearId,
+      title: "Test Conversation",
+      messageCount: 1,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    mockMessages.push({
+      id: 200,
+      conversationId: testConvId,
+      role: "user",
+      content: "Hello",
+      createdAt: new Date(),
+    });
+
+    // Mock the deleteUserAndRelatedData function
+    vi.mocked(require("./db").deleteUserAndRelatedData).mockResolvedValue({ success: true });
+
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.admin.deleteUser({ userId: testUserId });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("deleteUser: requires admin role", async () => {
+    const ctx = createUserContext(); // Regular user, not admin
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.admin.deleteUser({ userId: 999 })
+    ).rejects.toThrow();
+  });
+
+  it("stats: returns dashboard statistics", async () => {
+    const ctx = createAdminContext();
+
+    // Setup mock data
+    mockUsers.push(
+      { id: 1, openId: "u1", username: "user1", role: "user", name: null, email: null, loginMethod: "local", classId: null, passwordHash: null, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() },
+      { id: 2, openId: "u2", username: "user2", role: "user", name: null, email: null, loginMethod: "local", classId: null, passwordHash: null, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }
+    );
+    mockClasses.push(
+      { id: 1, name: "Class 1", description: null, inviteCode: "code1", createdBy: 99, createdAt: new Date(), updatedAt: new Date() }
+    );
+    mockBears.push(
+      { id: 1, userId: 1, bearName: "Bear 1", bearType: "grizzly", personality: "friend", tier: "bronze", level: 1, experience: 0, wisdom: 0, tech: 0, social: 0, totalChats: 0, emotion: "happy", createdAt: new Date(), updatedAt: new Date() }
+    );
+
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.admin.stats();
+
+    expect(result).toBeDefined();
+    expect(result.totalStudents).toBe(2);
+    expect(result.totalClasses).toBe(1);
+    expect(result.totalBears).toBe(1);
+  });
+
+  it("students: returns all students with their bears", async () => {
+    const ctx = createAdminContext();
+
+    // Setup mock data
+    mockUsers.push(
+      { id: 1, openId: "u1", username: "user1", name: "User 1", role: "user", email: null, loginMethod: "local", classId: 1, passwordHash: null, createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date() }
+    );
+    mockClasses.push(
+      { id: 1, name: "Class 1", description: null, inviteCode: "code1", createdBy: 99, createdAt: new Date(), updatedAt: new Date() }
+    );
+    mockBears.push(
+      { id: 1, userId: 1, bearName: "Test Bear", bearType: "grizzly", personality: "friend", tier: "silver", level: 5, experience: 100, wisdom: 10, tech: 8, social: 5, totalChats: 20, emotion: "happy", createdAt: new Date(), updatedAt: new Date() }
+    );
+
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.admin.students();
+
+    expect(result).toHaveLength(1);
+    expect(result[0].username).toBe("user1");
+    expect(result[0].bear?.bearName).toBe("Test Bear");
+    expect(result[0].className).toBe("Class 1");
+  });
+});

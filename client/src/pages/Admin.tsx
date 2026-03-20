@@ -1,10 +1,10 @@
 /*
  * 熊 Agent — 管理员后台（老师端）
- * 功能：班级管理、邀请码生成、学生概览
+ * 功能：班级管理、邀请码生成、学生概览、删除用户
  */
 import { useState, useEffect } from "react";
 import { motion } from "framer-motion";
-import { Shield, Users, BookOpen, Plus, Copy, ChevronDown, ChevronUp, Loader2, BarChart3 } from "lucide-react";
+import { Shield, Users, BookOpen, Plus, Copy, ChevronDown, ChevronUp, Loader2, BarChart3, Trash2 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
@@ -24,6 +24,8 @@ export default function Admin() {
   const [newClassName, setNewClassName] = useState("");
   const [newClassDesc, setNewClassDesc] = useState("");
   const [expandedClass, setExpandedClass] = useState<number | null>(null);
+  const [deleteConfirmUserId, setDeleteConfirmUserId] = useState<number | null>(null);
+  const [deleteConfirmUsername, setDeleteConfirmUsername] = useState<string>("");
 
   // Redirect non-admin users
   useEffect(() => {
@@ -63,6 +65,19 @@ export default function Admin() {
     },
   });
 
+  const deleteUserMutation = trpc.admin.deleteUser.useMutation({
+    onSuccess: () => {
+      toast.success("用户已删除");
+      setDeleteConfirmUserId(null);
+      setDeleteConfirmUsername("");
+      studentsQuery.refetch();
+      statsQuery.refetch();
+    },
+    onError: (err) => {
+      toast.error(err.message || "删除失败");
+    },
+  });
+
   const handleCreateClass = () => {
     if (!newClassName.trim()) {
       toast.error("请输入班级名称");
@@ -77,6 +92,17 @@ export default function Admin() {
   const copyInviteCode = (code: string) => {
     navigator.clipboard.writeText(code);
     toast.success(`邀请码已复制: ${code}`);
+  };
+
+  const handleDeleteUser = (userId: number, username: string) => {
+    setDeleteConfirmUserId(userId);
+    setDeleteConfirmUsername(username);
+  };
+
+  const confirmDeleteUser = () => {
+    if (deleteConfirmUserId) {
+      deleteUserMutation.mutate({ userId: deleteConfirmUserId });
+    }
   };
 
   if (authLoading) {
@@ -233,7 +259,8 @@ export default function Admin() {
                                 <th className="pb-2 pr-4">段位</th>
                                 <th className="pb-2 pr-4">等级</th>
                                 <th className="pb-2 pr-4">经验值</th>
-                                <th className="pb-2">对话数</th>
+                                <th className="pb-2 pr-4">对话数</th>
+                                <th className="pb-2">操作</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -266,8 +293,17 @@ export default function Admin() {
                                     <td className="py-2.5 pr-4 text-xs font-mono">
                                       {student.bear ? student.bear.experience : "-"}
                                     </td>
-                                    <td className="py-2.5 text-xs font-mono">
+                                    <td className="py-2.5 pr-4 text-xs font-mono">
                                       {student.bear ? student.bear.totalChats : "-"}
+                                    </td>
+                                    <td className="py-2.5">
+                                      <button
+                                        onClick={() => handleDeleteUser(student.id, student.name || student.username || "学生")}
+                                        className="p-1.5 rounded text-xs text-red-600 hover:bg-red-50 transition"
+                                        title="删除用户"
+                                      >
+                                        <Trash2 className="w-4 h-4" />
+                                      </button>
                                     </td>
                                   </tr>
                                 );
@@ -314,6 +350,7 @@ export default function Admin() {
                       <th className="p-3">经验值</th>
                       <th className="p-3">对话数</th>
                       <th className="p-3">最后登录</th>
+                      <th className="p-3">操作</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -342,6 +379,15 @@ export default function Admin() {
                           <td className="p-3 text-xs text-muted-foreground">
                             {student.lastSignedIn ? new Date(student.lastSignedIn).toLocaleDateString("zh-CN") : "-"}
                           </td>
+                          <td className="p-3">
+                            <button
+                              onClick={() => handleDeleteUser(student.id, student.name || student.username || "学生")}
+                              className="p-1.5 rounded text-xs text-red-600 hover:bg-red-50 transition"
+                              title="删除用户"
+                            >
+                              <Trash2 className="w-4 h-4" />
+                            </button>
+                          </td>
                         </tr>
                       );
                     })}
@@ -351,11 +397,55 @@ export default function Admin() {
             </div>
           ) : (
             <div className="bear-card p-10 text-center">
-              <p className="text-muted-foreground">暂无学生注册</p>
+              <p className="text-muted-foreground">暂无学生</p>
             </div>
           )}
         </motion.div>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      {deleteConfirmUserId !== null && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.95 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-background rounded-2xl p-6 max-w-sm w-full shadow-lg"
+          >
+            <h3 className="text-lg font-bold mb-2" style={{ color: "oklch(0.30 0.06 55)" }}>
+              确认删除用户
+            </h3>
+            <p className="text-sm text-muted-foreground mb-4">
+              确认删除用户 <span className="font-bold" style={{ color: "oklch(0.30 0.06 55)" }}>{deleteConfirmUsername}</span> 吗？此操作不可恢复，将删除该用户的所有数据（包括小熊、对话记录等）。
+            </p>
+            <div className="flex gap-3">
+              <Button
+                onClick={() => {
+                  setDeleteConfirmUserId(null);
+                  setDeleteConfirmUsername("");
+                }}
+                variant="outline"
+                className="flex-1"
+              >
+                取消
+              </Button>
+              <Button
+                onClick={confirmDeleteUser}
+                disabled={deleteUserMutation.isPending}
+                className="flex-1 text-white font-bold"
+                style={{ background: "#E74C3C" }}
+              >
+                {deleteUserMutation.isPending ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4 mr-1" /> 确认删除
+                  </>
+                )}
+              </Button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   );
 }

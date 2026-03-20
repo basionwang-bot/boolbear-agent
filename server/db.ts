@@ -257,3 +257,51 @@ export async function getMessagesByConversationId(conversationId: number) {
   if (!db) return [];
   return db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(messages.createdAt);
 }
+
+// ==================== DELETE QUERIES ====================
+
+/**
+ * Delete a user and all their related data (bears, conversations, messages)
+ * This is a cascading delete operation
+ */
+export async function deleteUserAndRelatedData(userId: number) {
+  const db = await getDb();
+  if (!db) {
+    throw new Error("Database not available");
+  }
+
+  try {
+    // Get all bears for this user
+    const userBears = await db.select().from(bears).where(eq(bears.userId, userId));
+    
+    // Delete all messages for conversations belonging to this user's bears
+    for (const bear of userBears) {
+      const userConversations = await db
+        .select()
+        .from(conversations)
+        .where(eq(conversations.bearId, bear.id));
+      
+      for (const conv of userConversations) {
+        // @ts-ignore - drizzle delete method
+        await db.delete(messages).where(eq(messages.conversationId, conv.id));
+      }
+      
+      // Delete all conversations for this bear
+      // @ts-ignore - drizzle delete method
+      await db.delete(conversations).where(eq(conversations.bearId, bear.id));
+    }
+    
+    // Delete all bears for this user
+    // @ts-ignore - drizzle delete method
+    await db.delete(bears).where(eq(bears.userId, userId));
+    
+    // Delete the user
+    // @ts-ignore - drizzle delete method
+    await db.delete(users).where(eq(users.id, userId));
+    
+    return { success: true };
+  } catch (error) {
+    console.error("[Database] Error deleting user:", error);
+    throw error;
+  }
+}
