@@ -1030,7 +1030,71 @@ const courseRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "章节不存在" });
       }
 
-      const pages = await db.getPagesByChapterId(input.chapterId);
+      let pages = await db.getPagesByChapterId(input.chapterId);
+
+      // Auto-generate pages if none exist (lazy generation)
+      if (pages.length === 0 && chapter.isGenerated) {
+        try {
+          const material = await db.getLearningMaterialById(course.materialId);
+          if (material) {
+            console.log(`[Course] Auto-generating pages for chapter ${chapter.id}: ${chapter.title}`);
+            const generatedPages = await generateChapterPages(
+              material.content,
+              chapter.title,
+              (chapter.objectives as string[]) || [],
+              (chapter.keyPoints as string[]) || [],
+              course.subject,
+              material.gradeLevel,
+              15
+            );
+
+            const savedPages = await db.createChapterPagesBatch(
+              generatedPages.map(p => ({
+                chapterId: chapter.id,
+                pageIndex: p.pageIndex,
+                title: p.title,
+                content: p.content,
+                hasQuiz: false,
+              }))
+            );
+
+            // Generate questions for each page
+            for (const savedPage of savedPages) {
+              try {
+                const questions = await generatePageQuestions(
+                  savedPage.content,
+                  savedPage.title,
+                  chapter.title,
+                  course.subject,
+                  material.gradeLevel
+                );
+                if (questions.length > 0) {
+                  await db.createPageQuestionsBatch(
+                    questions.map(q => ({
+                      pageId: savedPage.id,
+                      questionIndex: q.questionIndex,
+                      questionType: q.questionType,
+                      question: q.question,
+                      options: q.options,
+                      correctAnswer: q.correctAnswer,
+                      explanation: q.explanation,
+                    }))
+                  );
+                  await db.updateChapterPage(savedPage.id, { hasQuiz: true });
+                }
+              } catch (err) {
+                console.error(`[Course] Failed to generate questions for page ${savedPage.id}:`, err);
+              }
+            }
+
+            console.log(`[Course] Auto-generated ${savedPages.length} pages for chapter ${chapter.id}`);
+            pages = await db.getPagesByChapterId(input.chapterId);
+          }
+        } catch (err) {
+          console.error(`[Course] Auto-generation failed for chapter ${chapter.id}:`, err);
+          // Return empty pages, frontend will show "generating" message
+        }
+      }
       const pageProgress = await db.getChapterPageProgress(ctx.user.id, input.chapterId);
 
       // Get questions and answers for each page

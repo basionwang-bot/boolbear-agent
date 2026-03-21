@@ -1,0 +1,52 @@
+{
+  "query": "SELECT COUNT(*) as total FROM chapter_pages; SELECT COUNT(*) as total FROM page_questions; SELECT id, title, chapterIndex, isGenerated FROM course_chapters LIMIT 10;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2XBg1BfGdTzNV6N.ded88a4a5b51 --database 4byKXnSfmNJ8D24Qt3bNEe --execute SELECT COUNT(*) as total FROM chapter_pages; SELECT COUNT(*) as total FROM page_questions; SELECT id, title, chapterIndex, isGenerated FROM course_chapters LIMIT 10;",
+  "rows": [
+    {
+      "total": "0"
+    },
+    {
+      "total": "total"
+    },
+    {
+      "total": "0"
+    },
+    {
+      "total": "id\ttitle\tchapterIndex\tisGenerated"
+    },
+    {
+      "total": "1\t语文基础知识精讲：字词句与标点\t1\t1"
+    },
+    {
+      "total": "2\t语法与修辞：构建语言的骨架与色彩\t2\t1"
+    },
+    {
+      "total": "3\t文言文入门：古文阅读与积累\t3\t1"
+    },
+    {
+      "total": "4\t现代文阅读策略：文本解读与赏析\t4\t1"
+    },
+    {
+      "total": "5\t七年级课文精讲：单元主题与核心篇目\t5\t1"
+    },
+    {
+      "total": "6\t名著导读与文学素养提升\t6\t1"
+    },
+    {
+      "total": "7\t写作技巧与综合实践：表达与交流\t7\t1"
+    },
+    {
+      "total": "8\t语文基础知识精讲：字词句篇\t1\t1"
+    },
+    {
+      "total": "9\t语法与修辞：语言表达的奥秘\t2\t1"
+    },
+    {
+      "total": "10\t文言文入门与精读：穿越古今的智慧\t3\t1"
+    }
+  ],
+  "messages": [],
+  "stdout": "total\n0\ntotal\n0\nid\ttitle\tchapterIndex\tisGenerated\n1\t语文基础知识精讲：字词句与标点\t1\t1\n2\t语法与修辞：构建语言的骨架与色彩\t2\t1\n3\t文言文入门：古文阅读与积累\t3\t1\n4\t现代文阅读策略：文本解读与赏析\t4\t1\n5\t七年级课文精讲：单元主题与核心篇目\t5\t1\n6\t名著导读与文学素养提升\t6\t1\n7\t写作技巧与综合实践：表达与交流\t7\t1\n8\t语文基础知识精讲：字词句篇\t1\t1\n9\t语法与修辞：语言表达的奥秘\t2\t1\n10\t文言文入门与精读：穿越古今的智慧\t3\t1\n",
+  "stderr": "",
+  "execution_time_ms": 1952
+}

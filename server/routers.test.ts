@@ -385,6 +385,10 @@ vi.mock("./db", () => ({
   })),
   createChapterPage: vi.fn(async (data: any) => ({ id: 1, ...data })),
   createPageQuestion: vi.fn(async (data: any) => ({ id: 1, ...data })),
+  createChapterPagesBatch: vi.fn(async (dataList: any[]) => dataList.map((d: any, i: number) => ({ id: 500 + i, ...d, createdAt: new Date() }))),
+  createPageQuestionsBatch: vi.fn(async (dataList: any[]) => dataList.map((d: any, i: number) => ({ id: 600 + i, ...d, createdAt: new Date() }))),
+  updateChapterPage: vi.fn(async () => {}),
+  deletePagesByChapterId: vi.fn(async () => {}),
 }));
 
 // Mock sdk.createSessionToken
@@ -2112,6 +2116,81 @@ describe("course.chapterPages", () => {
     await expect(
       caller.course.chapterPages({ courseId: 1, chapterId: 10 })
     ).rejects.toThrow("课程不存在或未发布");
+  });
+
+  it("auto-generates pages when none exist for a generated chapter", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const {
+      getGeneratedCourseById, getCourseChapterById, getPagesByChapterId,
+      getLearningMaterialById, createChapterPagesBatch, createPageQuestionsBatch,
+      updateChapterPage, getQuestionsByPageId, getStudentAnswersForPage, getChapterPageProgress
+    } = await import("./db");
+    const { generateChapterPages, generatePageQuestions } = await import("./courseGenerator");
+
+    // Override mock to return array (not { pages: [...] }) as the real function does
+    (generateChapterPages as any).mockResolvedValueOnce([
+      { pageIndex: 1, title: "第1页", content: "知识内容1" },
+      { pageIndex: 2, title: "第2页", content: "知识内容2" },
+    ]);
+
+    // Course is published
+    (getGeneratedCourseById as any).mockResolvedValueOnce({
+      id: 1, materialId: 1, title: "Test Course", description: "", subject: "语文",
+      gradeLevel: null, status: "published", chapterCount: 3, totalEstimatedMinutes: 45,
+      createdAt: new Date(), updatedAt: new Date(),
+    });
+    // Chapter is generated but has no pages
+    (getCourseChapterById as any).mockResolvedValueOnce({
+      id: 10, courseId: 1, chapterIndex: 1, title: "第一章", content: "content",
+      objectives: ["obj1"], keyPoints: ["kp1"], estimatedMinutes: 15,
+      isGenerated: true, createdAt: new Date(),
+    });
+    // First call returns empty (triggers auto-generation)
+    (getPagesByChapterId as any).mockResolvedValueOnce([]);
+    // Material for generation
+    (getLearningMaterialById as any).mockResolvedValueOnce({
+      id: 1, content: "# Test Material", gradeLevel: "初一",
+    });
+    // Mock the batch creation to return saved pages
+    const savedPages = [
+      { id: 500, chapterId: 10, pageIndex: 1, title: "第1页", content: "知识内容1", hasQuiz: false, createdAt: new Date() },
+      { id: 501, chapterId: 10, pageIndex: 2, title: "第2页", content: "知识内容2", hasQuiz: false, createdAt: new Date() },
+    ];
+    (createChapterPagesBatch as any).mockResolvedValueOnce(savedPages);
+    // Mock question generation for each page (returns array, not { questions: [...] })
+    (generatePageQuestions as any)
+      .mockResolvedValueOnce([{ questionIndex: 1, questionType: "choice", question: "Q1", options: ["A","B","C","D"], correctAnswer: "A", explanation: "E1" }])
+      .mockResolvedValueOnce([]);
+    (createPageQuestionsBatch as any).mockResolvedValueOnce([{ id: 600 }]);
+    // Second call returns the generated pages
+    (getPagesByChapterId as any).mockResolvedValueOnce(savedPages);
+    // Progress mock
+    (getChapterPageProgress as any).mockResolvedValueOnce({
+      passedPages: 0, totalPages: 2, pageStatuses: [
+        { pageId: 500, passed: false },
+        { pageId: 501, passed: false },
+      ],
+    });
+    // Questions for each page
+    (getQuestionsByPageId as any)
+      .mockResolvedValueOnce([{ id: 600, pageId: 500, questionIndex: 1, questionType: "choice", question: "Q1", options: ["A","B","C","D"], correctAnswer: "A", explanation: "E1", createdAt: new Date() }])
+      .mockResolvedValueOnce([]);
+    // Student answers
+    (getStudentAnswersForPage as any)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+
+    const result = await caller.course.chapterPages({ courseId: 1, chapterId: 10 });
+
+    // Verify auto-generation was triggered
+    expect(generateChapterPages).toHaveBeenCalled();
+    expect(createChapterPagesBatch).toHaveBeenCalled();
+    // Verify pages are returned
+    expect(result.pages).toHaveLength(2);
+    expect(result.pages[0].questions).toHaveLength(1);
+    expect(result.progress.totalPages).toBe(2);
   });
 });
 

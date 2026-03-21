@@ -1,0 +1,19 @@
+{
+  "query": "SELECT COUNT(*) as total_pages FROM chapter_pages; SELECT COUNT(*) as total_questions FROM page_questions;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2XBg1BfGdTzNV6N.ded88a4a5b51 --database 4byKXnSfmNJ8D24Qt3bNEe --execute SELECT COUNT(*) as total_pages FROM chapter_pages; SELECT COUNT(*) as total_questions FROM page_questions;",
+  "rows": [
+    {
+      "total_pages": "15"
+    },
+    {
+      "total_pages": "total_questions"
+    },
+    {
+      "total_pages": "45"
+    }
+  ],
+  "messages": [],
+  "stdout": "total_pages\n15\ntotal_questions\n45\n",
+  "stderr": "",
+  "execution_time_ms": 1810
+}

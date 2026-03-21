@@ -69,6 +69,7 @@ export default function Admin() {
   const [selectedMaterialId, setSelectedMaterialId] = useState<number | null>(null);
   const [generatingCourse, setGeneratingCourse] = useState(false);
   const [generatingChapters, setGeneratingChapters] = useState(false);
+  const [generatingPages, setGeneratingPages] = useState(false);
   const [viewingCourseId, setViewingCourseId] = useState<number | null>(null);
 
   // Redirect non-admin users
@@ -202,6 +203,18 @@ export default function Admin() {
     },
   });
 
+  const generateAllPagesMutation = trpc.course.generateAllPages.useMutation({
+    onSuccess: (data) => {
+      toast.success(`已生成 ${data.totalPages} 个学习页面和 ${data.totalQuestions} 道题目`);
+      setGeneratingPages(false);
+      if (viewingCourseId) courseDetailQuery.refetch();
+    },
+    onError: (err) => {
+      toast.error(err.message || "生成分页内容失败");
+      setGeneratingPages(false);
+    },
+  });
+
   const publishCourseMutation = trpc.course.publish.useMutation({
     onSuccess: () => {
       toast.success("课程已发布");
@@ -260,6 +273,11 @@ export default function Admin() {
   const handleGenerateAllChapters = (courseId: number) => {
     setGeneratingChapters(true);
     generateAllChaptersMutation.mutate({ courseId });
+  };
+
+  const handleGenerateAllPages = (courseId: number) => {
+    setGeneratingPages(true);
+    generateAllPagesMutation.mutate({ courseId });
   };
 
   const generateReportMutation = trpc.admin.generateStudentReport.useMutation({
@@ -1013,6 +1031,17 @@ export default function Admin() {
                       >
                         {generatingChapters ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
                         生成所有章节内容
+                      </Button>
+                    )}
+                    {courseDetailQuery.data.chapters.some((ch: any) => ch.isGenerated) && (
+                      <Button
+                        onClick={() => handleGenerateAllPages(viewingCourseId)}
+                        disabled={generatingPages}
+                        className="text-white font-bold text-sm"
+                        style={{ background: "oklch(0.52 0.09 55)" }}
+                      >
+                        {generatingPages ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <BookOpen className="w-4 h-4 mr-1" />}
+                        {generatingPages ? "正在生成分页内容和题目..." : "生成分页内容和题目"}
                       </Button>
                     )}
                     {courseDetailQuery.data.status === "draft" && (

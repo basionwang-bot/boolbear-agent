@@ -364,7 +364,12 @@ function ChapterLearningView({
 
   const pagesQuery = trpc.course.chapterPages.useQuery(
     { courseId, chapterId },
-    { enabled: true }
+    {
+      enabled: true,
+      staleTime: 30_000, // Keep data fresh for 30s (auto-generation can take time)
+      retry: 2,
+      retryDelay: 3000,
+    }
   );
 
   const pages = pagesQuery.data?.pages || [];
@@ -397,11 +402,19 @@ function ChapterLearningView({
     }
   };
 
-  if (pagesQuery.isLoading) {
+  if (pagesQuery.isLoading || pagesQuery.isFetching) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <Loader2 className="w-8 h-8 animate-spin mb-4" style={{ color: "oklch(0.52 0.09 55)" }} />
-        <p className="text-sm text-muted-foreground">正在加载学习内容...</p>
+        <motion.img
+          src={bearImage}
+          alt="小熊正在准备"
+          className="w-20 h-20 rounded-full mb-4 shadow-lg"
+          animate={{ rotate: [0, -5, 5, 0], scale: [1, 1.05, 1] }}
+          transition={{ duration: 2, repeat: Infinity }}
+        />
+        <Loader2 className="w-6 h-6 animate-spin mb-3" style={{ color: "oklch(0.52 0.09 55)" }} />
+        <p className="text-sm font-bold" style={{ color: "oklch(0.52 0.09 55)" }}>小熊正在为你准备学习内容...</p>
+        <p className="text-xs text-muted-foreground mt-1">首次进入需要生成分页内容和题目，请稍等片刻</p>
       </div>
     );
   }
