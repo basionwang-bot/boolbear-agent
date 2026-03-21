@@ -262,7 +262,7 @@ vi.mock("./db", () => ({
     const result = [];
     for (const cls of mockClasses) {
       const students = mockUsers.filter((u) => u.classId === cls.id && u.role === "user");
-      let totalExp = 0, bearCount = 0, totalConvs = 0, totalKps = 0, activeCount = 0;
+      let totalExp = 0, bearCount = 0, totalConvs = 0, totalKps = 0, activeCount = 0, totalLearningMinutes = 0;
       const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
       for (const s of students) {
         const bear = mockBears.find((b) => b.userId === s.id);
@@ -271,6 +271,7 @@ vi.mock("./db", () => ({
         if (bear) { bearCount++; totalExp += bear.experience || 0; }
         totalConvs += convs.length;
         totalKps += kps.length;
+        totalLearningMinutes += convs.reduce((sum: number, c: any) => sum + (c.durationMinutes || 0), 0);
         if (s.lastSignedIn && new Date(s.lastSignedIn) > sevenDaysAgo) activeCount++;
       }
       result.push({
@@ -278,11 +279,35 @@ vi.mock("./db", () => ({
         studentCount: students.length, bearCount,
         avgExperience: bearCount > 0 ? Math.round(totalExp / bearCount) : 0,
         totalConversations: totalConvs, totalKnowledgePoints: totalKps,
+        totalLearningMinutes,
         activeStudents7d: activeCount,
       });
     }
     return result;
   }),
+  getUserLearningTime: vi.fn(async (userId: number) => {
+    const convs = mockConversations.filter((c) => c.userId === userId);
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const weekStart = new Date(todayStart);
+    weekStart.setDate(weekStart.getDate() - weekStart.getDay());
+    let totalMinutes = 0, todayMinutes = 0, weekMinutes = 0;
+    for (const c of convs) {
+      const dur = c.durationMinutes || 0;
+      totalMinutes += dur;
+      if (c.startedAt && new Date(c.startedAt) >= todayStart) todayMinutes += dur;
+      if (c.startedAt && new Date(c.startedAt) >= weekStart) weekMinutes += dur;
+    }
+    return { totalMinutes, todayMinutes, weekMinutes, totalSessions: convs.length };
+  }),
+  getUserDailyReportCount: vi.fn(async (userId: number) => {
+    const now = new Date();
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    return mockShareTokens.filter(
+      (t) => t.userId === userId && new Date(t.createdAt) >= todayStart
+    ).length;
+  }),
+  updateConversationLearningTime: vi.fn(async () => {}),
 }));
 
 // Mock sdk.createSessionToken
@@ -1090,9 +1115,17 @@ describe("parent router", () => {
     const ctx = createUserContext();
     const caller = appRouter.createCaller(ctx);
 
-    // Create two links
-    await caller.parent.createShareLink({ label: "链接1" });
-    await caller.parent.createShareLink({ label: "链接2" });
+    // Pre-populate share tokens directly (to avoid daily limit on createShareLink)
+    mockShareTokens.push({
+      id: 1, userId: ctx.user!.id, token: "token-1",
+      label: "链接1", isActive: 1, viewCount: 0,
+      lastViewedAt: null, expiresAt: null, createdAt: new Date(),
+    });
+    mockShareTokens.push({
+      id: 2, userId: ctx.user!.id, token: "token-2",
+      label: "链接2", isActive: 1, viewCount: 0,
+      lastViewedAt: null, expiresAt: null, createdAt: new Date(),
+    });
 
     const links = await caller.parent.myShareLinks();
     expect(links).toHaveLength(2);
@@ -1389,5 +1422,208 @@ describe("admin analytics & report generation", () => {
     await expect(
       caller.admin.generateStudentReport({ userId: 1 })
     ).rejects.toThrow();
+  });
+});
+
+
+// ==================== LEARNING TIME ROUTER TESTS ====================
+
+describe("learningTime router", () => {
+  it("stats: returns learning time stats for authenticated user", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    // Add some conversations with learning time
+    const now = new Date();
+    mockConversations.push({
+      id: 1, userId: ctx.user!.id, bearId: 1, title: "对话1",
+      messageCount: 5, durationMinutes: 30, startedAt: now, endedAt: now,
+      createdAt: now, updatedAt: now,
+    });
+    mockConversations.push({
+      id: 2, userId: ctx.user!.id, bearId: 1, title: "对话2",
+      messageCount: 3, durationMinutes: 15, startedAt: now, endedAt: now,
+      createdAt: now, updatedAt: now,
+    });
+
+    const result = await caller.learningTime.stats();
+
+    expect(result).toBeDefined();
+    expect(result.totalMinutes).toBe(45);
+    expect(result.todayMinutes).toBe(45);
+    expect(result.weekMinutes).toBe(45);
+    expect(result.totalSessions).toBe(2);
+  });
+
+  it("stats: returns zero for user with no conversations", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.learningTime.stats();
+
+    expect(result.totalMinutes).toBe(0);
+    expect(result.todayMinutes).toBe(0);
+    expect(result.weekMinutes).toBe(0);
+    expect(result.totalSessions).toBe(0);
+  });
+
+  it("stats: requires authentication", async () => {
+    const ctx = createPublicContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.learningTime.stats()).rejects.toThrow();
+  });
+
+  it("canGenerateReport: admin always can generate", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.learningTime.canGenerateReport();
+
+    expect(result.canGenerate).toBe(true);
+    expect(result.remaining).toBe(999);
+    expect(result.usedToday).toBe(0);
+  });
+
+  it("canGenerateReport: user can generate if no reports today", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.learningTime.canGenerateReport();
+
+    expect(result.canGenerate).toBe(true);
+    expect(result.remaining).toBe(1);
+    expect(result.usedToday).toBe(0);
+  });
+
+  it("canGenerateReport: user cannot generate if already used today", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    // Add a share token created today
+    mockShareTokens.push({
+      id: 1, userId: ctx.user!.id, token: "existing-token",
+      label: "test", isActive: 1, viewCount: 0,
+      lastViewedAt: null, expiresAt: null, createdAt: new Date(),
+    });
+
+    const result = await caller.learningTime.canGenerateReport();
+
+    expect(result.canGenerate).toBe(false);
+    expect(result.remaining).toBe(0);
+    expect(result.usedToday).toBe(1);
+  });
+});
+
+// ==================== REPORT GENERATION LIMIT TESTS ====================
+
+describe("parent router - report generation limits", () => {
+  it("createShareLink: allows first report of the day", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    // Pre-populate a bear for this user
+    mockBears.push({
+      id: 1, userId: ctx.user!.id, bearName: "测试熊", bearType: "grizzly",
+      personality: "friend", tier: "bronze", level: 1, experience: 0,
+      wisdom: 0, tech: 0, social: 0, totalChats: 0, emotion: "happy",
+      createdAt: new Date(), updatedAt: new Date(),
+    });
+
+    const result = await caller.parent.createShareLink({ label: "测试链接" });
+
+    expect(result).toBeDefined();
+    expect(result.token).toBeDefined();
+    expect(result.label).toBe("测试链接");
+  });
+
+  it("createShareLink: blocks second report of the day for regular user", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    // Pre-populate a bear for this user
+    mockBears.push({
+      id: 1, userId: ctx.user!.id, bearName: "测试熊", bearType: "grizzly",
+      personality: "friend", tier: "bronze", level: 1, experience: 0,
+      wisdom: 0, tech: 0, social: 0, totalChats: 0, emotion: "happy",
+      createdAt: new Date(), updatedAt: new Date(),
+    });
+
+    // Add a share token created today (simulating already used today)
+    mockShareTokens.push({
+      id: 1, userId: ctx.user!.id, token: "existing-token",
+      label: "earlier", isActive: 1, viewCount: 0,
+      lastViewedAt: null, expiresAt: null, createdAt: new Date(),
+    });
+
+    await expect(
+      caller.parent.createShareLink({ label: "第二次" })
+    ).rejects.toThrow("每天只能生成一次学习报告");
+  });
+
+  it("createShareLink: admin is not limited by daily quota", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    // Pre-populate a bear for admin
+    mockBears.push({
+      id: 1, userId: ctx.user!.id, bearName: "管理熊", bearType: "panda",
+      personality: "teacher", tier: "gold", level: 5, experience: 500,
+      wisdom: 50, tech: 50, social: 50, totalChats: 100, emotion: "happy",
+      createdAt: new Date(), updatedAt: new Date(),
+    });
+
+    // Add a share token created today
+    mockShareTokens.push({
+      id: 1, userId: ctx.user!.id, token: "admin-token",
+      label: "admin", isActive: 1, viewCount: 0,
+      lastViewedAt: null, expiresAt: null, createdAt: new Date(),
+    });
+
+    // Admin should still be able to create
+    const result = await caller.parent.createShareLink({ label: "管理员链接" });
+    expect(result).toBeDefined();
+    expect(result.token).toBeDefined();
+  });
+
+  it("viewReport: includes learning time data", async () => {
+    const ctx = createPublicContext();
+    const caller = appRouter.createCaller(ctx);
+
+    // Setup: create a user with a bear and share token
+    const userId = 50;
+    mockUsers.push({
+      id: userId, openId: "student-50", username: "student50",
+      name: "学生小明", email: null, loginMethod: "local", role: "user",
+      classId: null, passwordHash: null, createdAt: new Date(),
+      updatedAt: new Date(), lastSignedIn: new Date(),
+    });
+    mockBears.push({
+      id: 50, userId, bearName: "小明的熊", bearType: "grizzly",
+      personality: "friend", tier: "silver", level: 3, experience: 150,
+      wisdom: 30, tech: 20, social: 25, totalChats: 20, emotion: "happy",
+      createdAt: new Date(), updatedAt: new Date(),
+    });
+    mockShareTokens.push({
+      id: 50, userId, token: "view-test-token",
+      label: "test", isActive: 1, viewCount: 0,
+      lastViewedAt: null, expiresAt: null, createdAt: new Date(),
+    });
+    // Add conversations with learning time
+    mockConversations.push({
+      id: 50, userId, bearId: 50, title: "数学学习",
+      messageCount: 10, durationMinutes: 25, startedAt: new Date(), endedAt: new Date(),
+      createdAt: new Date(), updatedAt: new Date(),
+    });
+
+    const result = await caller.parent.viewReport({ token: "view-test-token" });
+
+    expect(result).toBeDefined();
+    expect(result.student.name).toBe("学生小明");
+    expect(result.bear).toBeDefined();
+    expect(result.bear?.bearName).toBe("小明的熊");
+    expect((result as any).learningTime).toBeDefined();
+    expect((result as any).learningTime.totalMinutes).toBe(25);
+    expect((result as any).learningTime.totalSessions).toBe(1);
   });
 });

@@ -186,6 +186,7 @@ export default function Admin() {
         经验值: s.experience || 0,
         知识点: s.knowledgePointCount || 0,
         对话数: s.conversationCount || 0,
+        学习时长: s.learningMinutes || 0,
       }));
   }, [classAnalyticsQuery.data]);
 
@@ -197,6 +198,7 @@ export default function Admin() {
       活跃人数: c.activeStudents7d,
       知识点: c.totalKnowledgePoints,
       平均经验: c.avgExperience,
+      学习时长: (c as any).totalLearningMinutes || 0,
     }));
   }, [classesAnalyticsQuery.data]);
 
@@ -552,6 +554,7 @@ export default function Admin() {
                               { label: "总消息数", value: classAnalyticsQuery.data.totalMessages, color: "oklch(0.50 0.10 155)", icon: "📝" },
                               { label: "知识点总数", value: classAnalyticsQuery.data.totalKnowledgePoints, color: "oklch(0.60 0.10 230)", icon: "🧠" },
                               { label: "平均掌握度", value: `${classAnalyticsQuery.data.avgMastery}%`, color: "oklch(0.65 0.15 85)", icon: "📊" },
+                              { label: "总学习时长", value: `${(classAnalyticsQuery.data as any).totalLearningMinutes ?? 0}分钟`, color: "oklch(0.55 0.12 280)", icon: "⏰" },
                             ].map((s) => (
                               <div key={s.label} className="bear-card p-4 text-center">
                                 <div className="text-2xl mb-1">{s.icon}</div>
@@ -658,6 +661,7 @@ export default function Admin() {
                                       <th className="p-3">对话数</th>
                                       <th className="p-3">消息数</th>
                                       <th className="p-3">知识点</th>
+                                      <th className="p-3">学习时长</th>
                                       <th className="p-3">最后活跃</th>
                                       <th className="p-3">操作</th>
                                     </tr>
@@ -674,6 +678,7 @@ export default function Admin() {
                                           <td className="p-3 text-xs font-mono">{s.conversationCount}</td>
                                           <td className="p-3 text-xs font-mono">{s.messageCount}</td>
                                           <td className="p-3 text-xs font-mono">{s.knowledgePointCount}</td>
+                                          <td className="p-3 text-xs font-mono">{s.learningMinutes ? `${s.learningMinutes}分钟` : "-"}</td>
                                           <td className="p-3 text-xs text-muted-foreground">{s.lastSignedIn ? new Date(s.lastSignedIn).toLocaleDateString("zh-CN") : "-"}</td>
                                           <td className="p-3">
                                             <button

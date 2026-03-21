@@ -29,6 +29,13 @@
       "when": 1774078680486,
       "tag": "0003_bizarre_giant_man",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1774091778135,
+      "tag": "0004_hard_mauler",
+      "breakpoints": true
     }
   ]
 }

@@ -4,7 +4,7 @@
  */
 import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, Zap, Shield, MessageCircle, Award, Loader2, BookOpen, Sparkles, RefreshCw, ChevronRight, GraduationCap, BarChart3, Share2, Copy, Link2, Trash2, Eye } from "lucide-react";
+import { Brain, Zap, Shield, MessageCircle, Award, Loader2, BookOpen, Sparkles, RefreshCw, ChevronRight, GraduationCap, BarChart3, Share2, Copy, Link2, Trash2, Eye, Clock, Timer } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
@@ -84,6 +84,15 @@ export default function Dashboard() {
     retry: false,
   });
 
+  const learningTimeQuery = trpc.learningTime.stats.useQuery(undefined, {
+    enabled: isAuthenticated,
+    retry: false,
+  });
+
+  const reportLimitQuery = trpc.learningTime.canGenerateReport.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+
   // Share link management
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareLabel, setShareLabel] = useState("");
@@ -94,9 +103,10 @@ export default function Dashboard() {
     onSuccess: () => {
       toast.success("分享链接已生成！");
       shareLinksQuery.refetch();
+      reportLimitQuery.refetch();
       setShareLabel("");
     },
-    onError: (err) => toast.error("生成失败：" + err.message),
+    onError: (err) => toast.error(err.message),
   });
   const deactivateLinkMutation = trpc.parent.deactivateLink.useMutation({
     onSuccess: () => {
@@ -253,6 +263,14 @@ export default function Dashboard() {
                 </div>
 
                 <div className="p-6 space-y-4">
+                  {/* Report limit notice */}
+                  {reportLimitQuery.data && !reportLimitQuery.data.canGenerate && (
+                    <div className="p-3 rounded-xl text-sm" style={{ background: "oklch(0.55 0.15 25 / 0.08)", color: "oklch(0.45 0.15 25)" }}>
+                      <Clock className="w-4 h-4 inline-block mr-1.5 -mt-0.5" />
+                      今日报告生成次数已用完（每天限 1 次），请明天再试
+                    </div>
+                  )}
+
                   {/* Create new link */}
                   <div className="flex gap-2">
                     <input
@@ -264,7 +282,7 @@ export default function Dashboard() {
                     />
                     <button
                       onClick={handleCreateShareLink}
-                      disabled={createShareLinkMutation.isPending}
+                      disabled={createShareLinkMutation.isPending || (reportLimitQuery.data ? !reportLimitQuery.data.canGenerate : false)}
                       className="px-5 py-2.5 rounded-xl text-white text-sm font-bold disabled:opacity-50 shrink-0"
                       style={{ background: "oklch(0.52 0.09 55)" }}
                     >
@@ -388,6 +406,33 @@ export default function Dashboard() {
 
                 {/* Stats Grid */}
                 <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-4 gap-4">
+                  {/* Learning Time Card */}
+                  <motion.div initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.25 }} className="bear-card p-5 col-span-2 sm:col-span-4">
+                    <div className="flex items-center gap-2 mb-3">
+                      <Clock className="w-5 h-5" style={{ color: "oklch(0.55 0.12 280)" }} />
+                      <h3 className="font-bold text-sm" style={{ color: "oklch(0.30 0.06 55)" }}>学习时长</h3>
+                    </div>
+                    <div className="grid grid-cols-3 gap-4">
+                      <div className="text-center">
+                        <p className="text-2xl font-black" style={{ color: "oklch(0.55 0.12 280)" }}>
+                          {learningTimeQuery.data?.todayMinutes ?? 0}
+                        </p>
+                        <p className="text-xs text-muted-foreground">今日/分钟</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-black" style={{ color: "oklch(0.50 0.15 250)" }}>
+                          {learningTimeQuery.data?.weekMinutes ?? 0}
+                        </p>
+                        <p className="text-xs text-muted-foreground">本周/分钟</p>
+                      </div>
+                      <div className="text-center">
+                        <p className="text-2xl font-black" style={{ color: "oklch(0.52 0.09 55)" }}>
+                          {learningTimeQuery.data?.totalMinutes ?? 0}
+                        </p>
+                        <p className="text-xs text-muted-foreground">累计/分钟</p>
+                      </div>
+                    </div>
+                  </motion.div>
                   {[
                     { icon: Brain, label: "智慧值", value: bear.wisdom.toString(), color: "oklch(0.52 0.09 55)", bg: "oklch(0.52 0.09 55 / 0.08)" },
                     { icon: Zap, label: "技术值", value: bear.tech.toString(), color: "oklch(0.50 0.10 155)", bg: "oklch(0.50 0.10 155 / 0.08)" },

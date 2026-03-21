@@ -431,6 +431,72 @@ export async function getRecentConversationSummaries(userId: number, limit: numb
   return summaries;
 }
 
+// ==================== LEARNING TIME TRACKING ====================
+
+/** Update conversation timing when a message is sent */
+export async function updateConversationTiming(conversationId: number) {
+  const db = await getDb();
+  if (!db) return;
+  const conv = await getConversationById(conversationId);
+  if (!conv) return;
+
+  const now = new Date();
+  const updates: Record<string, any> = { endedAt: now };
+
+  if (!conv.startedAt) {
+    updates.startedAt = now;
+    updates.durationMinutes = 0;
+  } else {
+    const startMs = new Date(conv.startedAt).getTime();
+    const endMs = now.getTime();
+    updates.durationMinutes = Math.max(0, Math.round((endMs - startMs) / 60000));
+  }
+
+  await db.update(conversations).set(updates).where(eq(conversations.id, conversationId));
+}
+
+/** Get total learning time for a user (in minutes) */
+export async function getUserLearningTime(userId: number) {
+  const db = await getDb();
+  if (!db) return { totalMinutes: 0, todayMinutes: 0, weekMinutes: 0, conversationCount: 0 };
+
+  const convs = await db.select().from(conversations).where(eq(conversations.userId, userId));
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const weekStart = new Date(todayStart.getTime() - 7 * 24 * 60 * 60 * 1000);
+
+  let totalMinutes = 0;
+  let todayMinutes = 0;
+  let weekMinutes = 0;
+
+  for (const c of convs) {
+    const dur = c.durationMinutes || 0;
+    totalMinutes += dur;
+    if (c.startedAt) {
+      const start = new Date(c.startedAt);
+      if (start >= todayStart) todayMinutes += dur;
+      if (start >= weekStart) weekMinutes += dur;
+    }
+  }
+
+  return { totalMinutes, todayMinutes, weekMinutes, conversationCount: convs.length };
+}
+
+/** Check how many share tokens a user has created today */
+export async function getUserDailyReportCount(userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+
+  const tokens = await db.select().from(parentShareTokens)
+    .where(eq(parentShareTokens.userId, userId));
+
+  return tokens.filter(t => new Date(t.createdAt) >= todayStart).length;
+}
+
 // ==================== CLASS ANALYTICS QUERIES ====================
 
 /** Get detailed analytics for a specific class */
@@ -503,22 +569,28 @@ export async function getClassAnalytics(classId: number) {
       activeStudents7d++;
     }
 
-    studentDetails.push({
-      id: student.id,
-      name: student.name || student.username || "未知",
-      username: student.username,
-      bearName: studentBear?.bearName || null,
-      bearType: studentBear?.bearType || null,
-      tier: studentBear?.tier || null,
-      level: studentBear?.level || 0,
-      experience: studentBear?.experience || 0,
-      totalChats: studentBear?.totalChats || 0,
-      conversationCount: convCount,
-      messageCount: msgCount,
-      knowledgePointCount: kpCount,
-      lastSignedIn: student.lastSignedIn,
-    });
+      // Calculate learning time for this student
+      const learningMinutes = convs.reduce((sum, c) => sum + (c.durationMinutes || 0), 0);
+
+      studentDetails.push({
+        id: student.id,
+        name: student.name || student.username || "未知",
+        username: student.username,
+        bearName: studentBear?.bearName || null,
+        bearType: studentBear?.bearType || null,
+        tier: studentBear?.tier || null,
+        level: studentBear?.level || 0,
+        experience: studentBear?.experience || 0,
+        totalChats: studentBear?.totalChats || 0,
+        conversationCount: convCount,
+        messageCount: msgCount,
+        knowledgePointCount: kpCount,
+        learningMinutes,
+        lastSignedIn: student.lastSignedIn,
+      });
   }
+
+  const totalLearningMinutes = studentDetails.reduce((sum: number, s: any) => sum + (s.learningMinutes || 0), 0);
 
   return {
     studentCount: students.length,
@@ -526,6 +598,7 @@ export async function getClassAnalytics(classId: number) {
     totalConversations,
     totalMessages,
     totalKnowledgePoints,
+    totalLearningMinutes,
     avgExperience: bearCount > 0 ? Math.round(totalExperience / bearCount) : 0,
     avgMastery: masteryCount > 0 ? Math.round(totalMastery / masteryCount) : 0,
     activeStudents7d,
@@ -552,6 +625,7 @@ export async function getAllClassesAnalytics() {
     let totalConvs = 0;
     let totalKps = 0;
     let activeCount = 0;
+    let totalLearningMinutes = 0;
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
 
     for (const s of students) {
@@ -565,6 +639,7 @@ export async function getAllClassesAnalytics() {
       }
       totalConvs += convs.length;
       totalKps += kps.length;
+      totalLearningMinutes += convs.reduce((sum, c) => sum + (c.durationMinutes || 0), 0);
       if (s.lastSignedIn && new Date(s.lastSignedIn) > sevenDaysAgo) {
         activeCount++;
       }
@@ -579,6 +654,7 @@ export async function getAllClassesAnalytics() {
       avgExperience: bearCount > 0 ? Math.round(totalExp / bearCount) : 0,
       totalConversations: totalConvs,
       totalKnowledgePoints: totalKps,
+      totalLearningMinutes,
       activeStudents7d: activeCount,
     });
   }

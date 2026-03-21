@@ -97,6 +97,12 @@ export const conversations = mysqlTable("conversations", {
   title: varchar("title", { length: 256 }).default("新对话").notNull(),
   /** Total message count in this conversation */
   messageCount: int("messageCount").default(0).notNull(),
+  /** When the first message was sent in this conversation (learning session start) */
+  startedAt: timestamp("startedAt"),
+  /** When the last message was sent (learning session end) */
+  endedAt: timestamp("endedAt"),
+  /** Calculated learning duration in minutes */
+  durationMinutes: int("durationMinutes").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

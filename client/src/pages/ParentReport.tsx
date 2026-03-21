@@ -105,7 +105,7 @@ export default function ParentReport() {
     );
   }
 
-  const { student, bear, knowledge, conversations } = report;
+  const { student, bear, knowledge, conversations, learningTime } = report as any;
   const tierInfo = bear ? TIER_MAP[bear.tier] || TIER_MAP.bronze : null;
   const bearTypeInfo = bear ? BEAR_TYPE_MAP[bear.bearType] || BEAR_TYPE_MAP.grizzly : null;
   const tierData = bear ? BEAR_TIERS.find(t => t.name === tierInfo?.name) : null;
@@ -188,7 +188,7 @@ export default function ParentReport() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
+              <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-6">
                 <div className="text-center p-4 rounded-xl" style={{ background: "oklch(0.52 0.09 55 / 0.06)" }}>
                   <div className="text-3xl font-black" style={{ color: "oklch(0.52 0.09 55)" }}>
                     {bear?.experience || 0}
@@ -212,6 +212,12 @@ export default function ParentReport() {
                     {knowledge.stats.avgMastery}%
                   </div>
                   <div className="text-xs text-muted-foreground mt-1">平均掌握度</div>
+                </div>
+                <div className="text-center p-4 rounded-xl" style={{ background: "oklch(0.55 0.12 280 / 0.06)" }}>
+                  <div className="text-3xl font-black" style={{ color: "oklch(0.55 0.12 280)" }}>
+                    {learningTime?.totalMinutes ?? 0}
+                  </div>
+                  <div className="text-xs text-muted-foreground mt-1">学习时长(分钟)</div>
                 </div>
               </div>
 
@@ -293,7 +299,7 @@ export default function ParentReport() {
 
                 {/* 知识点列表 */}
                 <div className="space-y-3">
-                  {knowledge.points.map((kp, i) => {
+                  {knowledge.points.map((kp: any, i: number) => {
                     const diff = DIFFICULTY_MAP[kp.difficulty] || DIFFICULTY_MAP.medium;
                     return (
                       <div key={i} className="flex items-center gap-4 p-4 rounded-xl border border-border hover:shadow-sm transition-shadow">
@@ -354,7 +360,7 @@ export default function ParentReport() {
           <CardContent>
             {conversations.length > 0 ? (
               <div className="space-y-3">
-                {conversations.map((conv) => (
+                {conversations.map((conv: any) => (
                   <div key={conv.id} className="p-4 rounded-xl border border-border hover:shadow-sm transition-shadow">
                     <div className="flex items-start justify-between mb-2">
                       <h4 className="font-semibold" style={{ color: "oklch(0.30 0.06 55)" }}>

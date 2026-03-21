@@ -350,7 +350,25 @@ const adminRouter = router({
     }),
 });
 
-// ==================== KNOWLEDGE ROUTER ====================
+// ==================== LEARNING TIME ROUTER ====================
+
+const learningTimeRouter = router({
+  /** Get current user's learning time stats */
+  stats: protectedProcedure.query(async ({ ctx }) => {
+    return db.getUserLearningTime(ctx.user.id);
+  }),
+
+  /** Check if user can generate a report today */
+  canGenerateReport: protectedProcedure.query(async ({ ctx }) => {
+    if (ctx.user.role === "admin") {
+      return { canGenerate: true, remaining: 999, usedToday: 0 };
+    }
+    const usedToday = await db.getUserDailyReportCount(ctx.user.id);
+    return { canGenerate: usedToday < 1, remaining: Math.max(0, 1 - usedToday), usedToday };
+  }),
+});
+
+// ==================== KNOWLEDGE ROUTER ==
 
 const knowledgeRouter = router({
   /** Get current user's knowledge points */
@@ -396,12 +414,22 @@ const knowledgeRouter = router({
 // ==================== PARENT ROUTER ====================
 
 const parentRouter = router({
-  /** Student: generate a share link for parents */
+  /** Student: generate a share link for parents (limited to 1 per day for non-admin) */
   createShareLink: protectedProcedure
     .input(z.object({
       label: z.string().max(128).optional(),
     }).optional())
     .mutation(async ({ ctx, input }) => {
+      // Check daily limit for non-admin users
+      if (ctx.user.role !== "admin") {
+        const usedToday = await db.getUserDailyReportCount(ctx.user.id);
+        if (usedToday >= 1) {
+          throw new TRPCError({
+            code: "TOO_MANY_REQUESTS",
+            message: "每天只能生成一次学习报告，请明天再试",
+          });
+        }
+      }
       const token = nanoid(24);
       const shareToken = await db.createParentShareToken({
         userId: ctx.user.id,
@@ -468,6 +496,9 @@ const parentRouter = router({
       // Get recent conversation summaries
       const recentConversations = await db.getRecentConversationSummaries(userId, 10);
 
+      // Get learning time stats
+      const learningTime = await db.getUserLearningTime(userId);
+
       return {
         student: {
           name: student.name || student.username || "未知",
@@ -475,6 +506,7 @@ const parentRouter = router({
           createdAt: student.createdAt,
           lastSignedIn: student.lastSignedIn,
         },
+        learningTime,
         bear: bear ? {
           bearName: bear.bearName,
           bearType: bear.bearType,
@@ -516,6 +548,7 @@ export const appRouter = router({
   admin: adminRouter,
   knowledge: knowledgeRouter,
   parent: parentRouter,
+  learningTime: learningTimeRouter,
 });
 
 export type AppRouter = typeof appRouter;

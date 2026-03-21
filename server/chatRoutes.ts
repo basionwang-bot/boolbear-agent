@@ -63,6 +63,9 @@ chatRouter.post("/api/chat/stream", async (req: Request, res: Response) => {
       content: message,
     });
 
+    // Update conversation timing for learning time tracking
+    await db.updateConversationTiming(conversationId);
+
     // Get conversation history (last 20 messages for context)
     const history = await db.getMessagesByConversationId(conversationId);
     const recentMessages = history.slice(-20).map(m => ({
@@ -96,6 +99,9 @@ chatRouter.post("/api/chat/stream", async (req: Request, res: Response) => {
           role: "assistant",
           content: fullContent,
         });
+
+        // Update conversation timing after assistant response
+        await db.updateConversationTiming(conversationId);
 
         // Award experience
         const xpResult = await awardExperience(bear.id, message);
