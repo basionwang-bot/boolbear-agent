@@ -153,3 +153,30 @@ export const knowledgePoints = mysqlTable("knowledge_points", {
 
 export type KnowledgePoint = typeof knowledgePoints.$inferSelect;
 export type InsertKnowledgePoint = typeof knowledgePoints.$inferInsert;
+
+/**
+ * Parent share tokens — allows parents to view their child's learning data
+ * without needing to register or log in.
+ */
+export const parentShareTokens = mysqlTable("parent_share_tokens", {
+  id: int("id").autoincrement().primaryKey(),
+  /** The student user ID this token belongs to */
+  userId: int("userId").notNull(),
+  /** Unique share token (used in URL) */
+  token: varchar("token", { length: 64 }).notNull().unique(),
+  /** Optional label, e.g. "爸爸的链接" */
+  label: varchar("label", { length: 128 }),
+  /** Whether this token is still active */
+  isActive: int("isActive").default(1).notNull(),
+  /** Expiration date (null = never expires) */
+  expiresAt: timestamp("expiresAt"),
+  /** View count */
+  viewCount: int("viewCount").default(0).notNull(),
+  /** Last viewed at */
+  lastViewedAt: timestamp("lastViewedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ParentShareToken = typeof parentShareTokens.$inferSelect;
+export type InsertParentShareToken = typeof parentShareTokens.$inferInsert;

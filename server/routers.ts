@@ -361,6 +361,118 @@ const knowledgeRouter = router({
   }),
 });
 
+// ==================== PARENT ROUTER ====================
+
+const parentRouter = router({
+  /** Student: generate a share link for parents */
+  createShareLink: protectedProcedure
+    .input(z.object({
+      label: z.string().max(128).optional(),
+    }).optional())
+    .mutation(async ({ ctx, input }) => {
+      const token = nanoid(24);
+      const shareToken = await db.createParentShareToken({
+        userId: ctx.user.id,
+        token,
+        label: input?.label || null,
+      });
+      return shareToken;
+    }),
+
+  /** Student: list their share links */
+  myShareLinks: protectedProcedure.query(async ({ ctx }) => {
+    return db.getParentShareTokensByUserId(ctx.user.id);
+  }),
+
+  /** Student: deactivate a share link */
+  deactivateLink: protectedProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify ownership via token list
+      const tokens = await db.getParentShareTokensByUserId(ctx.user.id);
+      const target = tokens.find(t => t.id === input.id);
+      if (!target) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "链接不存在" });
+      }
+      await db.deactivateShareToken(input.id);
+      return { success: true };
+    }),
+
+  /** Public: view child's learning report via share token (no login required) */
+  viewReport: publicProcedure
+    .input(z.object({ token: z.string() }))
+    .query(async ({ input }) => {
+      const shareToken = await db.getParentShareTokenByToken(input.token);
+      if (!shareToken) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "链接无效或已过期" });
+      }
+
+      // Check expiration
+      if (shareToken.expiresAt && new Date(shareToken.expiresAt) < new Date()) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "链接已过期" });
+      }
+
+      // Increment view count
+      await db.incrementShareTokenViewCount(input.token);
+
+      const userId = shareToken.userId;
+
+      // Get student info
+      const student = await db.getUserById(userId);
+      if (!student) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "学生信息不存在" });
+      }
+
+      // Get bear info
+      const bear = await db.getBearByUserId(userId);
+
+      // Get class info
+      const cls = student.classId ? await db.getClassById(student.classId) : null;
+
+      // Get knowledge points
+      const knowledgePointsList = await db.getKnowledgePointsByUserId(userId);
+      const knowledgeStats = await db.getKnowledgePointStats(userId);
+
+      // Get recent conversation summaries
+      const recentConversations = await db.getRecentConversationSummaries(userId, 10);
+
+      return {
+        student: {
+          name: student.name || student.username || "未知",
+          className: cls?.name || "未分班",
+          createdAt: student.createdAt,
+          lastSignedIn: student.lastSignedIn,
+        },
+        bear: bear ? {
+          bearName: bear.bearName,
+          bearType: bear.bearType,
+          personality: bear.personality,
+          tier: bear.tier,
+          level: bear.level,
+          experience: bear.experience,
+          wisdom: bear.wisdom,
+          tech: bear.tech,
+          social: bear.social,
+          totalChats: bear.totalChats,
+          emotion: bear.emotion,
+          createdAt: bear.createdAt,
+        } : null,
+        knowledge: {
+          points: knowledgePointsList.map(kp => ({
+            name: kp.name,
+            subject: kp.subject,
+            mastery: kp.mastery,
+            difficulty: kp.difficulty,
+            mentionCount: kp.mentionCount,
+            lastMentionedAt: kp.lastMentionedAt,
+          })),
+          stats: knowledgeStats,
+        },
+        conversations: recentConversations,
+      };
+    }),
+});
+
 // ==================== APP ROUTER ==
 
 export const appRouter = router({
@@ -371,6 +483,7 @@ export const appRouter = router({
   conversation: conversationRouter,
   admin: adminRouter,
   knowledge: knowledgeRouter,
+  parent: parentRouter,
 });
 
 export type AppRouter = typeof appRouter;

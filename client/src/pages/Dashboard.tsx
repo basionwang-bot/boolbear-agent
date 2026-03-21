@@ -4,7 +4,7 @@
  */
 import { useEffect, useState, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Brain, Zap, Shield, MessageCircle, Award, Loader2, BookOpen, Sparkles, RefreshCw, ChevronRight, GraduationCap, BarChart3 } from "lucide-react";
+import { Brain, Zap, Shield, MessageCircle, Award, Loader2, BookOpen, Sparkles, RefreshCw, ChevronRight, GraduationCap, BarChart3, Share2, Copy, Link2, Trash2, Eye } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
@@ -84,6 +84,41 @@ export default function Dashboard() {
     retry: false,
   });
 
+  // Share link management
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareLabel, setShareLabel] = useState("");
+  const shareLinksQuery = trpc.parent.myShareLinks.useQuery(undefined, {
+    enabled: isAuthenticated,
+  });
+  const createShareLinkMutation = trpc.parent.createShareLink.useMutation({
+    onSuccess: () => {
+      toast.success("分享链接已生成！");
+      shareLinksQuery.refetch();
+      setShareLabel("");
+    },
+    onError: (err) => toast.error("生成失败：" + err.message),
+  });
+  const deactivateLinkMutation = trpc.parent.deactivateLink.useMutation({
+    onSuccess: () => {
+      toast.success("链接已停用");
+      shareLinksQuery.refetch();
+    },
+    onError: (err) => toast.error("操作失败：" + err.message),
+  });
+
+  const handleCreateShareLink = () => {
+    createShareLinkMutation.mutate({ label: shareLabel || undefined });
+  };
+
+  const copyShareLink = (token: string) => {
+    const url = `${window.location.origin}/parent/${token}`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast.success("链接已复制到剪贴板");
+    }).catch(() => {
+      toast.error("复制失败，请手动复制");
+    });
+  };
+
   const extractAllMutation = trpc.knowledge.extractAll.useMutation({
     onSuccess: (data) => {
       toast.success(`分析完成！发现 ${data.added} 个新知识点，更新 ${data.updated} 个已有知识点`);
@@ -161,7 +196,7 @@ export default function Dashboard() {
         </motion.div>
 
         {/* Tab Switch */}
-        <div className="flex gap-2 mb-6">
+        <div className="flex gap-2 mb-6 flex-wrap">
           <button
             onClick={() => setActiveTab("overview")}
             className={`px-5 py-2.5 rounded-full text-sm font-bold transition-all ${activeTab === "overview" ? "text-white shadow-md" : "text-muted-foreground hover:bg-muted"}`}
@@ -181,7 +216,132 @@ export default function Dashboard() {
               <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-[10px] bg-white/20">{stats.total}</span>
             )}
           </button>
+          <button
+            onClick={() => setShowShareModal(true)}
+            className="px-5 py-2.5 rounded-full text-sm font-bold transition-all ml-auto text-muted-foreground hover:bg-muted flex items-center gap-1.5"
+          >
+            <Share2 className="w-4 h-4" />
+            分享给家长
+          </button>
         </div>
+
+        {/* Share Modal */}
+        <AnimatePresence>
+          {showShareModal && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4"
+              onClick={() => setShowShareModal(false)}
+            >
+              <motion.div
+                initial={{ scale: 0.9, opacity: 0 }}
+                animate={{ scale: 1, opacity: 1 }}
+                exit={{ scale: 0.9, opacity: 0 }}
+                className="bg-white rounded-2xl shadow-2xl max-w-lg w-full max-h-[80vh] overflow-y-auto"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <div className="p-6 border-b border-border">
+                  <h2 className="text-xl font-black flex items-center gap-2" style={{ color: "oklch(0.30 0.06 55)" }}>
+                    <Share2 className="w-5 h-5" style={{ color: "oklch(0.52 0.09 55)" }} />
+                    分享学习报告给家长
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    生成一个专属链接，家长无需登录即可查看学习报告
+                  </p>
+                </div>
+
+                <div className="p-6 space-y-4">
+                  {/* Create new link */}
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      value={shareLabel}
+                      onChange={(e) => setShareLabel(e.target.value)}
+                      placeholder="链接备注（可选，如“爸爸的链接”）"
+                      className="flex-1 px-4 py-2.5 rounded-xl border border-border text-sm focus:outline-none focus:ring-2 focus:ring-[oklch(0.52_0.09_55/0.3)]"
+                    />
+                    <button
+                      onClick={handleCreateShareLink}
+                      disabled={createShareLinkMutation.isPending}
+                      className="px-5 py-2.5 rounded-xl text-white text-sm font-bold disabled:opacity-50 shrink-0"
+                      style={{ background: "oklch(0.52 0.09 55)" }}
+                    >
+                      {createShareLinkMutation.isPending ? "生成中..." : "生成链接"}
+                    </button>
+                  </div>
+
+                  {/* Existing links */}
+                  {shareLinksQuery.data && shareLinksQuery.data.length > 0 ? (
+                    <div className="space-y-3">
+                      <h3 className="text-sm font-semibold text-muted-foreground">已生成的链接</h3>
+                      {shareLinksQuery.data.map((link) => (
+                        <div
+                          key={link.id}
+                          className={`p-4 rounded-xl border transition-all ${link.isActive ? "border-border hover:shadow-sm" : "border-border/50 opacity-50"}`}
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-2 mb-1">
+                                <Link2 className="w-4 h-4 shrink-0" style={{ color: link.isActive ? "oklch(0.52 0.09 55)" : "oklch(0.70 0.01 85)" }} />
+                                <span className="text-sm font-semibold truncate" style={{ color: "oklch(0.30 0.06 55)" }}>
+                                  {link.label || "分享链接"}
+                                </span>
+                                {!link.isActive && (
+                                  <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-red-50 text-red-500">已停用</span>
+                                )}
+                              </div>
+                              <div className="text-xs text-muted-foreground space-y-0.5">
+                                <p className="truncate font-mono">{window.location.origin}/parent/{link.token}</p>
+                                <div className="flex items-center gap-3">
+                                  <span className="flex items-center gap-1"><Eye className="w-3 h-3" /> {link.viewCount} 次查看</span>
+                                  <span>创建于 {new Date(link.createdAt).toLocaleDateString("zh-CN")}</span>
+                                </div>
+                              </div>
+                            </div>
+                            {link.isActive && (
+                              <div className="flex gap-1.5 shrink-0">
+                                <button
+                                  onClick={() => copyShareLink(link.token)}
+                                  className="p-2 rounded-lg hover:bg-muted transition-colors"
+                                  title="复制链接"
+                                >
+                                  <Copy className="w-4 h-4" style={{ color: "oklch(0.52 0.09 55)" }} />
+                                </button>
+                                <button
+                                  onClick={() => deactivateLinkMutation.mutate({ id: link.id })}
+                                  className="p-2 rounded-lg hover:bg-red-50 transition-colors"
+                                  title="停用链接"
+                                >
+                                  <Trash2 className="w-4 h-4 text-red-400" />
+                                </button>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="text-center py-6">
+                      <Share2 className="w-12 h-12 mx-auto mb-3 text-muted-foreground/30" />
+                      <p className="text-sm text-muted-foreground">还没有分享链接，点击上方按钮生成一个吧</p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-4 border-t border-border text-center">
+                  <button
+                    onClick={() => setShowShareModal(false)}
+                    className="px-6 py-2 rounded-full text-sm font-bold text-muted-foreground hover:bg-muted transition-colors"
+                  >
+                    关闭
+                  </button>
+                </div>
+              </motion.div>
+            </motion.div>
+          )}
+        </AnimatePresence>
 
         <AnimatePresence mode="wait">
           {activeTab === "overview" ? (

@@ -1,6 +1,6 @@
 import { eq, desc, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint } from "../drizzle/schema";
+import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, parentShareTokens, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint, type InsertParentShareToken } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -352,4 +352,81 @@ export async function deleteUserAndRelatedData(userId: number) {
     console.error("[Database] Error deleting user:", error);
     throw error;
   }
+}
+
+// ==================== PARENT SHARE TOKEN QUERIES ====================
+
+export async function createParentShareToken(data: InsertParentShareToken) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(parentShareTokens).values(data);
+  return getParentShareTokenByToken(data.token);
+}
+
+export async function getParentShareTokenByToken(token: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(parentShareTokens)
+    .where(and(eq(parentShareTokens.token, token), eq(parentShareTokens.isActive, 1)))
+    .limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function getParentShareTokensByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(parentShareTokens)
+    .where(eq(parentShareTokens.userId, userId))
+    .orderBy(desc(parentShareTokens.createdAt));
+}
+
+export async function incrementShareTokenViewCount(token: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(parentShareTokens)
+    .set({
+      viewCount: sql`${parentShareTokens.viewCount} + 1`,
+      lastViewedAt: new Date(),
+    })
+    .where(eq(parentShareTokens.token, token));
+}
+
+export async function deactivateShareToken(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(parentShareTokens)
+    .set({ isActive: 0 })
+    .where(eq(parentShareTokens.id, id));
+}
+
+/** Get recent conversation summaries for a user (last N conversations with message previews) */
+export async function getRecentConversationSummaries(userId: number, limit: number = 10) {
+  const db = await getDb();
+  if (!db) return [];
+  const convs = await db.select().from(conversations)
+    .where(eq(conversations.userId, userId))
+    .orderBy(desc(conversations.updatedAt))
+    .limit(limit);
+
+  const summaries = await Promise.all(convs.map(async (conv) => {
+    // Get first and last few messages for summary
+    const msgs = await db.select().from(messages)
+      .where(eq(messages.conversationId, conv.id))
+      .orderBy(messages.createdAt);
+    
+    // Build a brief summary from the messages
+    const userMessages = msgs.filter(m => m.role === "user").map(m => m.content);
+    const topicPreview = userMessages.slice(0, 3).join("；").slice(0, 200);
+    
+    return {
+      id: conv.id,
+      title: conv.title,
+      messageCount: conv.messageCount,
+      topicPreview: topicPreview || "暂无内容",
+      createdAt: conv.createdAt,
+      updatedAt: conv.updatedAt,
+    };
+  }));
+
+  return summaries;
 }

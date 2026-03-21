@@ -12,7 +12,8 @@ let mockBears: any[] = [];
 let mockConversations: any[] = [];
 let mockMessages: any[] = [];
 let mockKnowledgePoints: any[] = [];
-let autoId = { user: 100, class: 100, bear: 100, conv: 100, msg: 100, kp: 100 };
+let mockShareTokens: any[] = [];
+let autoId = { user: 100, class: 100, bear: 100, conv: 100, msg: 100, kp: 100, st: 100 };
 
 vi.mock("./db", () => ({
   getUserByUsername: vi.fn(async (username: string) => {
@@ -164,6 +165,48 @@ vi.mock("./db", () => ({
     if (kp) Object.assign(kp, data);
     return kp;
   }),
+  createParentShareToken: vi.fn(async (data: any) => {
+    const token = {
+      id: autoId.st++,
+      userId: data.userId,
+      token: data.token,
+      label: data.label || null,
+      isActive: 1,
+      viewCount: 0,
+      lastViewedAt: null,
+      expiresAt: null,
+      createdAt: new Date(),
+    };
+    mockShareTokens.push(token);
+    return token;
+  }),
+  getParentShareTokensByUserId: vi.fn(async (userId: number) => {
+    return mockShareTokens.filter((t) => t.userId === userId);
+  }),
+  getParentShareTokenByToken: vi.fn(async (token: string) => {
+    return mockShareTokens.find((t) => t.token === token && t.isActive === 1) || undefined;
+  }),
+  deactivateShareToken: vi.fn(async (id: number) => {
+    const token = mockShareTokens.find((t) => t.id === id);
+    if (token) token.isActive = 0;
+  }),
+  incrementShareTokenViewCount: vi.fn(async (token: string) => {
+    const t = mockShareTokens.find((st) => st.token === token);
+    if (t) t.viewCount++;
+  }),
+  getRecentConversationSummaries: vi.fn(async (userId: number, limit: number) => {
+    return mockConversations
+      .filter((c) => c.userId === userId)
+      .slice(0, limit)
+      .map((c) => ({
+        id: c.id,
+        title: c.title,
+        messageCount: c.messageCount,
+        topicPreview: "测试对话内容",
+        createdAt: c.createdAt,
+        updatedAt: c.updatedAt,
+      }));
+  }),
 }));
 
 // Mock sdk.createSessionToken
@@ -234,7 +277,8 @@ beforeEach(() => {
   mockConversations = [];
   mockMessages = [];
   mockKnowledgePoints = [];
-  autoId = { user: 100, class: 100, bear: 100, conv: 100, msg: 100, kp: 100 };
+  mockShareTokens = [];
+  autoId = { user: 100, class: 100, bear: 100, conv: 100, msg: 100, kp: 100, st: 100 };
   vi.clearAllMocks();
 });
 
@@ -930,5 +974,177 @@ describe("knowledge router", () => {
 
     expect(result).toBeDefined();
     expect(result.extracted).toBeGreaterThanOrEqual(0);
+  });
+});
+
+describe("parent router", () => {
+  it("createShareLink: generates a share link for authenticated user", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.parent.createShareLink({ label: "爸爸的链接" });
+
+    expect(result).toBeDefined();
+    expect(result.userId).toBe(ctx.user!.id);
+    expect(result.label).toBe("爸爸的链接");
+    expect(result.token).toBeDefined();
+    expect(result.isActive).toBe(1);
+    expect(result.viewCount).toBe(0);
+  });
+
+  it("createShareLink: works without label", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.parent.createShareLink({});
+
+    expect(result).toBeDefined();
+    expect(result.label).toBeNull();
+    expect(result.token).toBeDefined();
+  });
+
+  it("createShareLink: requires authentication", async () => {
+    const ctx = createPublicContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.parent.createShareLink({})).rejects.toThrow();
+  });
+
+  it("myShareLinks: returns user's share links", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    // Create two links
+    await caller.parent.createShareLink({ label: "链接1" });
+    await caller.parent.createShareLink({ label: "链接2" });
+
+    const links = await caller.parent.myShareLinks();
+    expect(links).toHaveLength(2);
+    expect(links[0].label).toBe("链接1");
+    expect(links[1].label).toBe("链接2");
+  });
+
+  it("deactivateLink: deactivates a share link", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const link = await caller.parent.createShareLink({ label: "要停用的链接" });
+    const result = await caller.parent.deactivateLink({ id: link.id });
+
+    expect(result.success).toBe(true);
+    const token = mockShareTokens.find(t => t.id === link.id);
+    expect(token?.isActive).toBe(0);
+  });
+
+  it("deactivateLink: fails for non-existent link", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.parent.deactivateLink({ id: 99999 })).rejects.toThrow("链接不存在");
+  });
+
+  it("viewReport: returns learning report via valid token", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    // Setup: add user to mockUsers so getUserById can find them
+    mockUsers.push({
+      id: ctx.user!.id,
+      openId: ctx.user!.openId,
+      username: ctx.user!.username,
+      name: ctx.user!.name,
+      email: ctx.user!.email,
+      loginMethod: "local",
+      role: "user",
+      classId: ctx.user!.classId,
+      passwordHash: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+      lastSignedIn: new Date(),
+    });
+
+    // Setup: create bear and knowledge points for the user
+    mockBears.push({
+      id: 1,
+      userId: ctx.user!.id,
+      bearName: "测试熊",
+      bearType: "grizzly",
+      personality: "friend",
+      tier: "silver",
+      level: 5,
+      experience: 150,
+      wisdom: 30,
+      tech: 20,
+      social: 10,
+      totalChats: 15,
+      emotion: "happy",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    mockKnowledgePoints.push({
+      id: 1,
+      userId: ctx.user!.id,
+      name: "二次方程",
+      subject: "数学",
+      mastery: 75,
+      difficulty: "medium",
+      mentionCount: 3,
+      lastMentionedAt: new Date(),
+      createdAt: new Date(),
+    });
+
+    mockConversations.push({
+      id: 1,
+      userId: ctx.user!.id,
+      bearId: 1,
+      title: "数学学习",
+      messageCount: 4,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // Create a share link
+    const link = await caller.parent.createShareLink({ label: "家长查看" });
+
+    // View report as public (no auth needed)
+    const publicCtx = createPublicContext();
+    const publicCaller = appRouter.createCaller(publicCtx);
+    const report = await publicCaller.parent.viewReport({ token: link.token });
+
+    expect(report).toBeDefined();
+    expect(report.student).toBeDefined();
+    expect(report.student.name).toBe("Test User");
+    expect(report.bear).toBeDefined();
+    expect(report.bear?.bearName).toBe("测试熊");
+    expect(report.bear?.tier).toBe("silver");
+    expect(report.knowledge).toBeDefined();
+    expect(report.knowledge.points).toHaveLength(1);
+    expect(report.knowledge.points[0].name).toBe("二次方程");
+    expect(report.conversations).toBeDefined();
+  });
+
+  it("viewReport: fails for invalid token", async () => {
+    const publicCtx = createPublicContext();
+    const publicCaller = appRouter.createCaller(publicCtx);
+
+    await expect(
+      publicCaller.parent.viewReport({ token: "invalid-token-123" })
+    ).rejects.toThrow("链接无效或已过期");
+  });
+
+  it("viewReport: fails for deactivated token", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const link = await caller.parent.createShareLink({ label: "将被停用" });
+    await caller.parent.deactivateLink({ id: link.id });
+
+    const publicCtx = createPublicContext();
+    const publicCaller = appRouter.createCaller(publicCtx);
+
+    await expect(
+      publicCaller.parent.viewReport({ token: link.token })
+    ).rejects.toThrow("链接无效或已过期");
   });
 });

@@ -12,6 +12,7 @@ import Adopt from "./pages/Adopt";
 import BearGallery from "./pages/BearGallery";
 import AuthPage from "./pages/AuthPage";
 import Admin from "./pages/Admin";
+import ParentReport from "./pages/ParentReport";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -25,6 +26,7 @@ function Router() {
       <Route path="/adopt" component={Adopt} />
       <Route path="/gallery" component={BearGallery} />
       <Route path="/admin" component={Admin} />
+      <Route path="/parent/:token" component={ParentReport} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />
     </Switch>
