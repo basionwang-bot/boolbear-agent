@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, bigint, json } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, bigint, json, boolean } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -103,6 +103,8 @@ export const conversations = mysqlTable("conversations", {
   endedAt: timestamp("endedAt"),
   /** Calculated learning duration in minutes */
   durationMinutes: int("durationMinutes").default(0).notNull(),
+  /** Whether knowledge points have been extracted from this conversation */
+  isAnalyzed: boolean("isAnalyzed").default(false).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
 });

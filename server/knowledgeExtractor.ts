@@ -101,11 +101,24 @@ export async function extractKnowledgePoints(
 
 /**
  * Extract knowledge points from a conversation and save/update them in the database.
+ * Only extracts if the conversation hasn't been analyzed before (prevents duplicate extraction).
  */
 export async function extractAndSaveKnowledgePoints(
   conversationId: number,
   userId: number
 ): Promise<{ added: number; updated: number }> {
+  // Check if conversation has already been analyzed
+  const conversation = await db.getConversationById(conversationId);
+  if (!conversation) {
+    return { added: 0, updated: 0 };
+  }
+
+  // Skip if already analyzed
+  if (conversation.isAnalyzed) {
+    console.log(`[KnowledgeExtractor] Conversation ${conversationId} already analyzed, skipping`);
+    return { added: 0, updated: 0 };
+  }
+
   const extracted = await extractKnowledgePoints(conversationId, userId);
   let added = 0;
   let updated = 0;
@@ -141,6 +154,9 @@ export async function extractAndSaveKnowledgePoints(
       added++;
     }
   }
+
+  // Mark conversation as analyzed to prevent duplicate extraction
+  await db.updateConversation(conversationId, { isAnalyzed: true });
 
   return { added, updated };
 }

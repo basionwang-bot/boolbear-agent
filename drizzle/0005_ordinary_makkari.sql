@@ -1,0 +1,1 @@
+ALTER TABLE `conversations` ADD `isAnalyzed` boolean DEFAULT false NOT NULL;

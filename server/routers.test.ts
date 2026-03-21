@@ -106,6 +106,10 @@ vi.mock("./db", () => ({
       bearId: data.bearId,
       title: data.title || "新对话",
       messageCount: 0,
+      startedAt: data.startedAt || new Date(),
+      endedAt: data.endedAt || null,
+      durationMinutes: data.durationMinutes || 0,
+      isAnalyzed: data.isAnalyzed || false,
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -126,7 +130,10 @@ vi.mock("./db", () => ({
     mockMessages.push(msg);
     return msg;
   }),
-  updateConversation: vi.fn(async () => {}),
+  updateConversation: vi.fn(async (id: number, data: any) => {
+    const conv = mockConversations.find((c) => c.id === id);
+    if (conv) Object.assign(conv, data);
+  }),
   deleteUserAndRelatedData: vi.fn(async (userId: number) => {
     const idx = mockUsers.findIndex((u) => u.id === userId);
     if (idx === -1) throw new Error("User not found");
@@ -918,7 +925,12 @@ vi.mock("./knowledgeExtractor", () => ({
     },
   ]),
   extractAndSaveKnowledgePoints: vi.fn(async (conversationId: number, userId: number) => {
-    return { extracted: 2, updated: 0, total: 2 };
+    // Check if conversation is already analyzed
+    const conv = mockConversations.find((c) => c.id === conversationId);
+    if (conv && conv.isAnalyzed) {
+      return { added: 0, updated: 0 };
+    }
+    return { added: 2, updated: 0 };
   }),
 }));
 
@@ -1059,6 +1071,10 @@ describe("knowledge router", () => {
       bearId: 1,
       title: "数学学习",
       messageCount: 4,
+      startedAt: new Date(),
+      endedAt: new Date(),
+      durationMinutes: 30,
+      isAnalyzed: false,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
@@ -1074,7 +1090,8 @@ describe("knowledge router", () => {
     const result = await caller.knowledge.extract({ conversationId: 1 });
 
     expect(result).toBeDefined();
-    expect(result.extracted).toBeGreaterThanOrEqual(0);
+    expect(result.added).toBeGreaterThanOrEqual(0);
+    expect(result.updated).toBeGreaterThanOrEqual(0);
   });
 });
 
@@ -1627,3 +1644,35 @@ describe("parent router - report generation limits", () => {
     expect((result as any).learningTime.totalSessions).toBe(1);
   });
 });
+
+
+  it("extract: prevents duplicate extraction of same conversation", async () => {
+    const ctx = createUserContext();
+
+    // Setup conversation that's already analyzed
+    mockConversations.push({
+      id: 2,
+      userId: ctx.user!.id,
+      bearId: 1,
+      title: "已分析的对话",
+      messageCount: 2,
+      startedAt: new Date(),
+      endedAt: new Date(),
+      durationMinutes: 15,
+      isAnalyzed: true,  // Already analyzed
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    mockMessages.push(
+      { id: 5, conversationId: 2, role: "user", content: "测试问题", createdAt: new Date() },
+      { id: 6, conversationId: 2, role: "assistant", content: "测试回答", createdAt: new Date() }
+    );
+
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.knowledge.extract({ conversationId: 2 });
+
+    // Should return 0 added/updated because conversation is already analyzed
+    expect(result.added).toBe(0);
+    expect(result.updated).toBe(0);
+  });
