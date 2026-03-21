@@ -430,3 +430,158 @@ export async function getRecentConversationSummaries(userId: number, limit: numb
 
   return summaries;
 }
+
+// ==================== CLASS ANALYTICS QUERIES ====================
+
+/** Get detailed analytics for a specific class */
+export async function getClassAnalytics(classId: number) {
+  const db = await getDb();
+  if (!db) return null;
+
+  const students = await db.select().from(users)
+    .where(and(eq(users.role, "user"), eq(users.classId, classId)));
+
+  if (students.length === 0) {
+    return {
+      studentCount: 0,
+      bearCount: 0,
+      totalConversations: 0,
+      totalMessages: 0,
+      totalKnowledgePoints: 0,
+      avgExperience: 0,
+      avgMastery: 0,
+      activeStudents7d: 0,
+      subjectDistribution: {} as Record<string, number>,
+      tierDistribution: {} as Record<string, number>,
+      studentDetails: [] as any[],
+    };
+  }
+
+  const studentIds = students.map(s => s.id);
+  let bearCount = 0;
+  let totalConversations = 0;
+  let totalMessages = 0;
+  let totalKnowledgePoints = 0;
+  let totalExperience = 0;
+  let totalMastery = 0;
+  let masteryCount = 0;
+  let activeStudents7d = 0;
+  const subjectDistribution: Record<string, number> = {};
+  const tierDistribution: Record<string, number> = {};
+  const studentDetails: any[] = [];
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+  for (const student of students) {
+    const bear = await db.select().from(bears).where(eq(bears.userId, student.id)).limit(1);
+    const convs = await db.select().from(conversations).where(eq(conversations.userId, student.id));
+    const kps = await db.select().from(knowledgePoints).where(eq(knowledgePoints.userId, student.id));
+
+    const studentBear = bear[0] || null;
+    const convCount = convs.length;
+    const msgCount = convs.reduce((sum, c) => sum + (c.messageCount || 0), 0);
+    const kpCount = kps.length;
+
+    if (studentBear) {
+      bearCount++;
+      totalExperience += studentBear.experience || 0;
+      const tier = studentBear.tier || "bronze";
+      tierDistribution[tier] = (tierDistribution[tier] || 0) + 1;
+    }
+
+    totalConversations += convCount;
+    totalMessages += msgCount;
+    totalKnowledgePoints += kpCount;
+
+    for (const kp of kps) {
+      subjectDistribution[kp.subject] = (subjectDistribution[kp.subject] || 0) + 1;
+      totalMastery += kp.mastery;
+      masteryCount++;
+    }
+
+    // Check if active in last 7 days
+    if (student.lastSignedIn && new Date(student.lastSignedIn) > sevenDaysAgo) {
+      activeStudents7d++;
+    }
+
+    studentDetails.push({
+      id: student.id,
+      name: student.name || student.username || "未知",
+      username: student.username,
+      bearName: studentBear?.bearName || null,
+      bearType: studentBear?.bearType || null,
+      tier: studentBear?.tier || null,
+      level: studentBear?.level || 0,
+      experience: studentBear?.experience || 0,
+      totalChats: studentBear?.totalChats || 0,
+      conversationCount: convCount,
+      messageCount: msgCount,
+      knowledgePointCount: kpCount,
+      lastSignedIn: student.lastSignedIn,
+    });
+  }
+
+  return {
+    studentCount: students.length,
+    bearCount,
+    totalConversations,
+    totalMessages,
+    totalKnowledgePoints,
+    avgExperience: bearCount > 0 ? Math.round(totalExperience / bearCount) : 0,
+    avgMastery: masteryCount > 0 ? Math.round(totalMastery / masteryCount) : 0,
+    activeStudents7d,
+    subjectDistribution,
+    tierDistribution,
+    studentDetails,
+  };
+}
+
+/** Get analytics for all classes (overview) */
+export async function getAllClassesAnalytics() {
+  const db = await getDb();
+  if (!db) return [];
+
+  const allClasses = await db.select().from(classes).orderBy(desc(classes.createdAt));
+  const result = [];
+
+  for (const cls of allClasses) {
+    const students = await db.select().from(users)
+      .where(and(eq(users.role, "user"), eq(users.classId, cls.id)));
+    
+    let totalExp = 0;
+    let bearCount = 0;
+    let totalConvs = 0;
+    let totalKps = 0;
+    let activeCount = 0;
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+    for (const s of students) {
+      const bear = await db.select().from(bears).where(eq(bears.userId, s.id)).limit(1);
+      const convs = await db.select().from(conversations).where(eq(conversations.userId, s.id));
+      const kps = await db.select().from(knowledgePoints).where(eq(knowledgePoints.userId, s.id));
+      
+      if (bear[0]) {
+        bearCount++;
+        totalExp += bear[0].experience || 0;
+      }
+      totalConvs += convs.length;
+      totalKps += kps.length;
+      if (s.lastSignedIn && new Date(s.lastSignedIn) > sevenDaysAgo) {
+        activeCount++;
+      }
+    }
+
+    result.push({
+      classId: cls.id,
+      className: cls.name,
+      inviteCode: cls.inviteCode,
+      studentCount: students.length,
+      bearCount,
+      avgExperience: bearCount > 0 ? Math.round(totalExp / bearCount) : 0,
+      totalConversations: totalConvs,
+      totalKnowledgePoints: totalKps,
+      activeStudents7d: activeCount,
+    });
+  }
+
+  return result;
+}

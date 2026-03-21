@@ -207,6 +207,82 @@ vi.mock("./db", () => ({
         updatedAt: c.updatedAt,
       }));
   }),
+  getClassAnalytics: vi.fn(async (classId: number) => {
+    const students = mockUsers.filter((u) => u.classId === classId && u.role === "user");
+    if (students.length === 0) {
+      return {
+        studentCount: 0, bearCount: 0, totalConversations: 0, totalMessages: 0,
+        totalKnowledgePoints: 0, avgExperience: 0, avgMastery: 0, activeStudents7d: 0,
+        subjectDistribution: {}, tierDistribution: {}, studentDetails: [],
+      };
+    }
+    let bearCount = 0, totalExp = 0, totalConvs = 0, totalMsgs = 0, totalKps = 0, totalMastery = 0, masteryCount = 0;
+    const subjectDistribution: Record<string, number> = {};
+    const tierDistribution: Record<string, number> = {};
+    const studentDetails: any[] = [];
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    let activeCount = 0;
+    for (const s of students) {
+      const bear = mockBears.find((b) => b.userId === s.id);
+      const convs = mockConversations.filter((c) => c.userId === s.id);
+      const kps = mockKnowledgePoints.filter((kp) => kp.userId === s.id);
+      const msgCount = convs.reduce((sum: number, c: any) => sum + (c.messageCount || 0), 0);
+      if (bear) {
+        bearCount++;
+        totalExp += bear.experience || 0;
+        tierDistribution[bear.tier] = (tierDistribution[bear.tier] || 0) + 1;
+      }
+      totalConvs += convs.length;
+      totalMsgs += msgCount;
+      totalKps += kps.length;
+      for (const kp of kps) {
+        subjectDistribution[kp.subject] = (subjectDistribution[kp.subject] || 0) + 1;
+        totalMastery += kp.mastery;
+        masteryCount++;
+      }
+      if (s.lastSignedIn && new Date(s.lastSignedIn) > sevenDaysAgo) activeCount++;
+      studentDetails.push({
+        id: s.id, name: s.name || s.username, username: s.username,
+        bearName: bear?.bearName || null, bearType: bear?.bearType || null,
+        tier: bear?.tier || null, level: bear?.level || 0,
+        experience: bear?.experience || 0, totalChats: bear?.totalChats || 0,
+        conversationCount: convs.length, messageCount: msgCount,
+        knowledgePointCount: kps.length, lastSignedIn: s.lastSignedIn,
+      });
+    }
+    return {
+      studentCount: students.length, bearCount, totalConversations: totalConvs,
+      totalMessages: totalMsgs, totalKnowledgePoints: totalKps,
+      avgExperience: bearCount > 0 ? Math.round(totalExp / bearCount) : 0,
+      avgMastery: masteryCount > 0 ? Math.round(totalMastery / masteryCount) : 0,
+      activeStudents7d: activeCount, subjectDistribution, tierDistribution, studentDetails,
+    };
+  }),
+  getAllClassesAnalytics: vi.fn(async () => {
+    const result = [];
+    for (const cls of mockClasses) {
+      const students = mockUsers.filter((u) => u.classId === cls.id && u.role === "user");
+      let totalExp = 0, bearCount = 0, totalConvs = 0, totalKps = 0, activeCount = 0;
+      const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+      for (const s of students) {
+        const bear = mockBears.find((b) => b.userId === s.id);
+        const convs = mockConversations.filter((c) => c.userId === s.id);
+        const kps = mockKnowledgePoints.filter((kp) => kp.userId === s.id);
+        if (bear) { bearCount++; totalExp += bear.experience || 0; }
+        totalConvs += convs.length;
+        totalKps += kps.length;
+        if (s.lastSignedIn && new Date(s.lastSignedIn) > sevenDaysAgo) activeCount++;
+      }
+      result.push({
+        classId: cls.id, className: cls.name, inviteCode: cls.inviteCode,
+        studentCount: students.length, bearCount,
+        avgExperience: bearCount > 0 ? Math.round(totalExp / bearCount) : 0,
+        totalConversations: totalConvs, totalKnowledgePoints: totalKps,
+        activeStudents7d: activeCount,
+      });
+    }
+    return result;
+  }),
 }));
 
 // Mock sdk.createSessionToken
@@ -1146,5 +1222,172 @@ describe("parent router", () => {
     await expect(
       publicCaller.parent.viewReport({ token: link.token })
     ).rejects.toThrow("链接无效或已过期");
+  });
+});
+
+describe("admin analytics & report generation", () => {
+  it("classesAnalytics: returns overview for all classes", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    // Create a class
+    const cls = await caller.class.create({ name: "分析测试班", description: "测试" });
+
+    // Register a student in the class
+    const publicCtx = createPublicContext();
+    const publicCaller = appRouter.createCaller(publicCtx);
+    await publicCaller.auth.register({
+      username: "analytics_student",
+      password: "password123",
+      inviteCode: cls.inviteCode,
+    });
+
+    // Get classes analytics
+    const analytics = await caller.admin.classesAnalytics();
+    expect(analytics).toBeDefined();
+    expect(Array.isArray(analytics)).toBe(true);
+    expect(analytics.length).toBeGreaterThanOrEqual(1);
+
+    const classData = analytics.find((c: any) => c.classId === cls.id);
+    expect(classData).toBeDefined();
+    expect(classData?.className).toBe("分析测试班");
+    expect(classData?.studentCount).toBe(1);
+  });
+
+  it("classAnalytics: returns detailed analytics for a specific class", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    // Create a class
+    const cls = await caller.class.create({ name: "详细分析班", description: "测试" });
+
+    // Register a student
+    const publicCtx = createPublicContext();
+    const publicCaller = appRouter.createCaller(publicCtx);
+    await publicCaller.auth.register({
+      username: "detail_student",
+      password: "password123",
+      inviteCode: cls.inviteCode,
+    });
+
+    const student = mockUsers.find((u) => u.username === "detail_student");
+    expect(student).toBeDefined();
+
+    // Add a bear for the student
+    mockBears.push({
+      id: autoId.bear++,
+      userId: student!.id,
+      bearName: "分析熊",
+      bearType: "grizzly",
+      personality: "teacher",
+      tier: "silver",
+      level: 5,
+      experience: 200,
+      wisdom: 10,
+      tech: 8,
+      social: 5,
+      totalChats: 15,
+      emotion: "happy",
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // Add knowledge points
+    mockKnowledgePoints.push({
+      id: autoId.kp++,
+      userId: student!.id,
+      name: "二次方程",
+      subject: "数学",
+      difficulty: "medium",
+      mastery: 80,
+      mentionCount: 3,
+      lastMentionedAt: new Date(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // Get class analytics
+    const analytics = await caller.admin.classAnalytics({ classId: cls.id });
+    expect(analytics).toBeDefined();
+    expect(analytics?.studentCount).toBe(1);
+    expect(analytics?.bearCount).toBe(1);
+    expect(analytics?.totalKnowledgePoints).toBe(1);
+    expect(analytics?.avgExperience).toBe(200);
+    expect(analytics?.avgMastery).toBe(80);
+    expect(analytics?.subjectDistribution).toHaveProperty("数学");
+    expect(analytics?.tierDistribution).toHaveProperty("silver");
+    expect(analytics?.studentDetails).toHaveLength(1);
+    expect(analytics?.studentDetails[0].name).toBe("detail_student");
+    expect(analytics?.studentDetails[0].experience).toBe(200);
+    expect(analytics?.studentDetails[0].knowledgePointCount).toBe(1);
+  });
+
+  it("classAnalytics: returns empty data for class with no students", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const cls = await caller.class.create({ name: "空班级", description: "无学生" });
+    const analytics = await caller.admin.classAnalytics({ classId: cls.id });
+
+    expect(analytics).toBeDefined();
+    expect(analytics?.studentCount).toBe(0);
+    expect(analytics?.bearCount).toBe(0);
+    expect(analytics?.totalConversations).toBe(0);
+    expect(analytics?.totalKnowledgePoints).toBe(0);
+    expect(analytics?.studentDetails).toHaveLength(0);
+  });
+
+  it("classesAnalytics: requires admin role", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(caller.admin.classesAnalytics()).rejects.toThrow();
+  });
+
+  it("generateStudentReport: creates a share link for a student", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    // Create a class and register a student
+    const cls = await caller.class.create({ name: "报告班", description: "测试" });
+    const publicCtx = createPublicContext();
+    const publicCaller = appRouter.createCaller(publicCtx);
+    await publicCaller.auth.register({
+      username: "report_student",
+      password: "password123",
+      inviteCode: cls.inviteCode,
+    });
+
+    const student = mockUsers.find((u) => u.username === "report_student");
+    expect(student).toBeDefined();
+
+    // Generate report
+    const report = await caller.admin.generateStudentReport({
+      userId: student!.id,
+      label: "report_student 的学习报告",
+    });
+
+    expect(report).toBeDefined();
+    expect(report.token).toBeDefined();
+    expect(report.userId).toBe(student!.id);
+    expect(report.label).toBe("report_student 的学习报告");
+  });
+
+  it("generateStudentReport: fails for non-existent student", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.admin.generateStudentReport({ userId: 99999 })
+    ).rejects.toThrow("学生不存在");
+  });
+
+  it("generateStudentReport: requires admin role", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.admin.generateStudentReport({ userId: 1 })
+    ).rejects.toThrow();
   });
 });

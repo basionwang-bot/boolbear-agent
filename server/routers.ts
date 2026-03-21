@@ -278,6 +278,38 @@ const adminRouter = router({
     };
   }),
 
+  /** Get analytics for all classes (overview) */
+  classesAnalytics: adminProcedure.query(async () => {
+    return db.getAllClassesAnalytics();
+  }),
+
+  /** Get detailed analytics for a specific class */
+  classAnalytics: adminProcedure
+    .input(z.object({ classId: z.number() }))
+    .query(async ({ input }) => {
+      return db.getClassAnalytics(input.classId);
+    }),
+
+  /** Admin: generate a share link for any student */
+  generateStudentReport: adminProcedure
+    .input(z.object({
+      userId: z.number().int().positive(),
+      label: z.string().max(128).optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const student = await db.getUserById(input.userId);
+      if (!student) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "学生不存在" });
+      }
+      const token = nanoid(24);
+      const shareToken = await db.createParentShareToken({
+        userId: input.userId,
+        token,
+        label: input.label || `${student.name || student.username} 的学习报告`,
+      });
+      return shareToken;
+    }),
+
   /** List all students with their bears */
   students: adminProcedure.query(async () => {
     const students = await db.getAllStudents();
