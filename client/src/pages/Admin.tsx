@@ -528,12 +528,12 @@ export default function Admin() {
                                               {reportGeneratingUserId === student.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                                             </button>
                                             <button
-                                              onClick={() => toggleChatMutation.mutate({ userId: student.id, disabled: !(student as any).isChatDisabled })}
+                                              onClick={() => toggleChatMutation.mutate({ userId: student.id, disabled: !student.isChatDisabled })}
                                               disabled={toggleChatMutation.isPending}
-                                              className={`p-1.5 rounded text-xs transition ${(student as any).isChatDisabled ? 'text-green-600 hover:bg-green-50' : 'text-orange-500 hover:bg-orange-50'}`}
-                                              title={(student as any).isChatDisabled ? "恢复 AI 聊天" : "停用 AI 聊天"}
+                                              className={`p-1.5 rounded text-xs transition ${student.isChatDisabled ? 'text-green-600 hover:bg-green-50' : 'text-orange-500 hover:bg-orange-50'}`}
+                                              title={student.isChatDisabled ? "恢复 AI 聊天" : "停用 AI 聊天"}
                                             >
-                                              {(student as any).isChatDisabled ? <MessageCircle className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                                              {student.isChatDisabled ? <MessageCircle className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
                                             </button>
                                             <button onClick={() => handleDeleteUser(student.id, student.name || student.username || "学生")} className="p-1.5 rounded text-xs text-red-600 hover:bg-red-50 transition" title="删除用户">
                                               <Trash2 className="w-4 h-4" />

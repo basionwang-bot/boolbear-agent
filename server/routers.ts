@@ -148,6 +148,7 @@ const classRouter = router({
           classId: s.classId,
           createdAt: s.createdAt,
           lastSignedIn: s.lastSignedIn,
+          isChatDisabled: s.isChatDisabled,
           bear: bear ? {
             bearName: bear.bearName,
             bearType: bear.bearType,
