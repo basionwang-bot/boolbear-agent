@@ -103,3 +103,33 @@
 - [x] 编写 vitest 测试（83 个测试全部通过）
 
 - [x] 修复：管理员禁用学员AI对话后缺少解除禁用按钮（class.students 未返回 isChatDisabled 字段）
+
+## 课程学习模块优化：分页学习+小熊出题闯关
+
+### 数据库变更
+- [x] 创建 chapter_pages 表（章节分页内容，每章约15页）
+- [x] 创建 page_questions 表（每页的选择题/判断题）
+- [x] 创建 student_answers 表（学生答题记录）
+- [x] 修改 student_course_progress 表（增加页级进度追踪）
+
+### 后端 - 课程生成引擎改造
+- [x] 改造 generateChapterContent：生成约15页分页内容（每页少量知识点）
+- [x] 新增 generatePageQuestions：为每页生成选择题和判断题
+- [x] 题目格式：选择题（4选1）+ 判断题（对/错）
+
+### 后端 - 答题和进度控制 API
+- [x] 实现 course.chapterPages：获取章节所有页面（含题目和答题记录）
+- [x] 实现 course.submitAnswer：提交答题结果（记录尝试次数）
+- [x] 实现 course.generatePages：为章节生成分页内容
+- [x] 实现 course.generateQuestions：为页面生成题目
+- [x] 实现进度锁定逻辑：全部答对才能进入下一章节
+
+### 前端 - 分页学习+小熊出题界面
+- [x] 重构课程学习页面为分页模式（知识卡片+小熊出题）
+- [x] 实现知识内容展示页（少量精华内容，Markdown 渲染）
+- [x] 实现小熊出题检测页（选择题+判断题交互）
+- [x] 实现答对/答错反馈动画（小熊表情变化+鼓励话语）
+- [x] 实现章节锁定/解锁逻辑（前一章通关才解锁下一章）
+
+### 测试
+- [x] 编写分页学习和答题功能的 vitest 测试（91 个测试全部通过）

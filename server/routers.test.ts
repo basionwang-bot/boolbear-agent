@@ -360,6 +360,31 @@ vi.mock("./db", () => ({
   }),
   updateCourseProgress: vi.fn(async () => {}),
   getStudentCourseProgressList: vi.fn(async () => []),
+  // Chapter pages, questions, and student answers
+  getPagesByChapterId: vi.fn(async () => []),
+  getQuestionsByPageId: vi.fn(async () => []),
+  getStudentAnswersForPage: vi.fn(async () => []),
+  getQuestionById: vi.fn(async (id: number) => ({
+    id,
+    pageId: 1,
+    questionIndex: 1,
+    questionType: "choice",
+    question: "1+1=?",
+    options: ["1", "2", "3", "4"],
+    correctAnswer: "2",
+    explanation: "一加一等于二",
+    createdAt: new Date(),
+  })),
+  createStudentAnswer: vi.fn(async () => {}),
+  hasStudentPassedPage: vi.fn(async () => false),
+  hasStudentPassedChapter: vi.fn(async () => false),
+  getChapterPageProgress: vi.fn(async () => ({
+    passedPages: 0,
+    totalPages: 0,
+    pageStatuses: [],
+  })),
+  createChapterPage: vi.fn(async (data: any) => ({ id: 1, ...data })),
+  createPageQuestion: vi.fn(async (data: any) => ({ id: 1, ...data })),
 }));
 
 // Mock sdk.createSessionToken
@@ -991,6 +1016,18 @@ vi.mock("./courseGenerator", () => ({
     ],
   })),
   generateChapterContent: vi.fn(async () => "# 章节内容\n\n这是生成的课程内容"),
+  generateChapterPages: vi.fn(async () => ({
+    pages: [
+      { pageIndex: 1, title: "第1页", content: "知识内宱1" },
+      { pageIndex: 2, title: "第2页", content: "知识内容2" },
+    ],
+  })),
+  generatePageQuestions: vi.fn(async () => ({
+    questions: [
+      { questionIndex: 1, questionType: "choice", question: "1+1=?", options: ["1", "2", "3", "4"], correctAnswer: "2", explanation: "一加一等于二" },
+      { questionIndex: 2, questionType: "judge", question: "1+1=3", options: ["对", "错"], correctAnswer: "错", explanation: "1+1=2" },
+    ],
+  })),
 }));
 
 describe("knowledge router", () => {
@@ -2012,5 +2049,218 @@ describe("admin.toggleChatDisabled", () => {
     for (const s of students) {
       expect(typeof s.isChatDisabled === "boolean" || s.isChatDisabled === undefined || s.isChatDisabled === null).toBe(true);
     }
+  });
+});
+
+// ==================== CHAPTER PAGES & QUIZ TESTS ====================
+
+describe("course.chapterPages", () => {
+  it("returns pages with questions for a published course", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const { getGeneratedCourseById, getCourseChapterById, getPagesByChapterId, getQuestionsByPageId, getStudentAnswersForPage, getChapterPageProgress } = await import("./db");
+
+    (getGeneratedCourseById as any).mockResolvedValueOnce({
+      id: 1, materialId: 1, title: "Test Course", description: "", subject: "数学",
+      gradeLevel: null, status: "published", chapterCount: 3, totalEstimatedMinutes: 45,
+      createdAt: new Date(), updatedAt: new Date(),
+    });
+    (getCourseChapterById as any).mockResolvedValueOnce({
+      id: 10, courseId: 1, chapterIndex: 1, title: "第一章", content: "content",
+      objectives: ["obj1"], keyPoints: ["kp1"], estimatedMinutes: 15, contentOutline: "outline",
+      isGenerated: true, createdAt: new Date(),
+    });
+    (getPagesByChapterId as any).mockResolvedValueOnce([
+      { id: 100, chapterId: 10, pageIndex: 1, title: "第1页", content: "知识内容1", createdAt: new Date() },
+      { id: 101, chapterId: 10, pageIndex: 2, title: "第2页", content: "知识内容2", createdAt: new Date() },
+    ]);
+    (getQuestionsByPageId as any)
+      .mockResolvedValueOnce([
+        { id: 200, pageId: 100, questionIndex: 1, questionType: "choice", question: "1+1=?", options: ["1","2","3","4"], correctAnswer: "2", explanation: "一加一等于二", createdAt: new Date() },
+      ])
+      .mockResolvedValueOnce([]);
+    (getStudentAnswersForPage as any)
+      .mockResolvedValueOnce([])
+      .mockResolvedValueOnce([]);
+    (getChapterPageProgress as any).mockResolvedValueOnce({
+      passedPages: 0, totalPages: 2, pageStatuses: [
+        { pageId: 100, passed: false },
+        { pageId: 101, passed: false },
+      ],
+    });
+
+    const result = await caller.course.chapterPages({ courseId: 1, chapterId: 10 });
+
+    expect(result.pages).toHaveLength(2);
+    expect(result.pages[0].questions).toHaveLength(1);
+    expect(result.pages[0].questions[0].question).toBe("1+1=?");
+    // Correct answer should be hidden since student hasn't answered correctly
+    expect(result.pages[0].questions[0].correctAnswer).toBeNull();
+    expect(result.progress.passedPages).toBe(0);
+  });
+
+  it("rejects for non-published course", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const { getGeneratedCourseById } = await import("./db");
+    (getGeneratedCourseById as any).mockResolvedValueOnce({
+      id: 1, status: "draft", title: "Draft Course",
+    });
+
+    await expect(
+      caller.course.chapterPages({ courseId: 1, chapterId: 10 })
+    ).rejects.toThrow("课程不存在或未发布");
+  });
+});
+
+describe("course.submitAnswer", () => {
+  it("accepts correct answer and returns isCorrect=true", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const { getQuestionById, getStudentAnswersForPage, createStudentAnswer, hasStudentPassedPage, hasStudentPassedChapter } = await import("./db");
+
+    (getQuestionById as any).mockResolvedValueOnce({
+      id: 200, pageId: 100, questionIndex: 1, questionType: "choice",
+      question: "1+1=?", options: ["1","2","3","4"], correctAnswer: "2",
+      explanation: "一加一等于二", createdAt: new Date(),
+    });
+    (getStudentAnswersForPage as any).mockResolvedValueOnce([]);
+    (createStudentAnswer as any).mockResolvedValueOnce({});
+    (hasStudentPassedPage as any).mockResolvedValueOnce(false);
+
+    const result = await caller.course.submitAnswer({
+      courseId: 1, chapterId: 10, pageId: 100, questionId: 200, answer: "2",
+    });
+
+    expect(result.isCorrect).toBe(true);
+    expect(result.correctAnswer).toBe("2");
+    expect(result.explanation).toBe("一加一等于二");
+    expect(createStudentAnswer).toHaveBeenCalled();
+  });
+
+  it("rejects wrong answer and returns isCorrect=false", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const { getQuestionById, getStudentAnswersForPage, createStudentAnswer, hasStudentPassedPage } = await import("./db");
+
+    (getQuestionById as any).mockResolvedValueOnce({
+      id: 200, pageId: 100, questionIndex: 1, questionType: "choice",
+      question: "1+1=?", options: ["1","2","3","4"], correctAnswer: "2",
+      explanation: "一加一等于二", createdAt: new Date(),
+    });
+    (getStudentAnswersForPage as any).mockResolvedValueOnce([]);
+    (createStudentAnswer as any).mockResolvedValueOnce({});
+    (hasStudentPassedPage as any).mockResolvedValueOnce(false);
+
+    const result = await caller.course.submitAnswer({
+      courseId: 1, chapterId: 10, pageId: 100, questionId: 200, answer: "3",
+    });
+
+    expect(result.isCorrect).toBe(false);
+    expect(result.correctAnswer).toBeNull();
+    expect(result.explanation).toBeNull();
+  });
+
+  it("returns alreadyAnswered=true if question was already answered correctly", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const { getQuestionById, getStudentAnswersForPage } = await import("./db");
+
+    (getQuestionById as any).mockResolvedValueOnce({
+      id: 200, pageId: 100, questionIndex: 1, questionType: "choice",
+      question: "1+1=?", options: ["1","2","3","4"], correctAnswer: "2",
+      explanation: "一加一等于二", createdAt: new Date(),
+    });
+    (getStudentAnswersForPage as any).mockResolvedValueOnce([
+      { questionId: 200, answer: "2", isCorrect: true, attemptNumber: 1 },
+    ]);
+
+    const result = await caller.course.submitAnswer({
+      courseId: 1, chapterId: 10, pageId: 100, questionId: 200, answer: "2",
+    });
+
+    expect(result.isCorrect).toBe(true);
+    expect(result.alreadyAnswered).toBe(true);
+  });
+
+  it("updates chapter progress when all pages are passed", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const { getQuestionById, getStudentAnswersForPage, createStudentAnswer, hasStudentPassedPage, hasStudentPassedChapter, getGeneratedCourseById, getCourseChapterById, getOrCreateProgress, updateCourseProgress } = await import("./db");
+
+    (getQuestionById as any).mockResolvedValueOnce({
+      id: 200, pageId: 100, questionIndex: 1, questionType: "choice",
+      question: "1+1=?", options: ["1","2","3","4"], correctAnswer: "2",
+      explanation: "一加一等于二", createdAt: new Date(),
+    });
+    (getStudentAnswersForPage as any).mockResolvedValueOnce([]);
+    (createStudentAnswer as any).mockResolvedValueOnce({});
+    (hasStudentPassedPage as any).mockResolvedValueOnce(true);
+    (hasStudentPassedChapter as any).mockResolvedValueOnce(true);
+    (getGeneratedCourseById as any).mockResolvedValueOnce({
+      id: 1, chapterCount: 3, status: "published",
+    });
+    (getCourseChapterById as any).mockResolvedValueOnce({
+      id: 10, courseId: 1, chapterIndex: 1,
+    });
+    (getOrCreateProgress as any).mockResolvedValueOnce({
+      id: 1, userId: 1, courseId: 1, lastCompletedChapter: 0, startedAt: null,
+    });
+
+    const result = await caller.course.submitAnswer({
+      courseId: 1, chapterId: 10, pageId: 100, questionId: 200, answer: "2",
+    });
+
+    expect(result.isCorrect).toBe(true);
+    expect(result.pagePassed).toBe(true);
+    expect(result.chapterPassed).toBe(true);
+    expect(updateCourseProgress).toHaveBeenCalled();
+  });
+
+  it("rejects for non-existent question", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const { getQuestionById } = await import("./db");
+    (getQuestionById as any).mockResolvedValueOnce(null);
+
+    await expect(
+      caller.course.submitAnswer({
+        courseId: 1, chapterId: 10, pageId: 100, questionId: 999, answer: "2",
+      })
+    ).rejects.toThrow("题目不存在");
+  });
+
+  it("tracks attempt number correctly", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const { getQuestionById, getStudentAnswersForPage, createStudentAnswer, hasStudentPassedPage } = await import("./db");
+
+    (getQuestionById as any).mockResolvedValueOnce({
+      id: 200, pageId: 100, questionIndex: 1, questionType: "choice",
+      question: "1+1=?", options: ["1","2","3","4"], correctAnswer: "2",
+      explanation: "一加一等于二", createdAt: new Date(),
+    });
+    // Simulate 2 previous wrong attempts
+    (getStudentAnswersForPage as any).mockResolvedValueOnce([
+      { questionId: 200, answer: "1", isCorrect: false, attemptNumber: 1 },
+      { questionId: 200, answer: "3", isCorrect: false, attemptNumber: 2 },
+    ]);
+    (createStudentAnswer as any).mockResolvedValueOnce({});
+    (hasStudentPassedPage as any).mockResolvedValueOnce(false);
+
+    const result = await caller.course.submitAnswer({
+      courseId: 1, chapterId: 10, pageId: 100, questionId: 200, answer: "2",
+    });
+
+    expect(result.isCorrect).toBe(true);
+    expect(result.attemptNumber).toBe(3);
   });
 });

@@ -10,7 +10,7 @@ import * as db from "./db";
 import { sdk } from "./_core/sdk";
 import { ONE_YEAR_MS } from "@shared/const";
 import { extractAndSaveKnowledgePoints } from "./knowledgeExtractor";
-import { generateCourseOutline, generateChapterContent } from "./courseGenerator";
+import { generateCourseOutline, generateChapterContent, generateChapterPages, generatePageQuestions } from "./courseGenerator";
 
 // ==================== AUTH ROUTER ====================
 
@@ -841,6 +841,374 @@ const courseRouter = router({
   myProgress: protectedProcedure.query(async ({ ctx }) => {
     return db.getStudentCourseProgressList(ctx.user.id);
   }),
+
+  // ---- Page-based learning endpoints (NEW) ----
+
+  /** Generate pages for a chapter (admin) — splits content into ~15 bite-sized pages with quizzes */
+  generatePages: adminProcedure
+    .input(z.object({
+      courseId: z.number().int().positive(),
+      chapterId: z.number().int().positive(),
+      pageCount: z.number().int().min(5).max(25).optional().default(15),
+    }))
+    .mutation(async ({ input }) => {
+      const course = await db.getGeneratedCourseById(input.courseId);
+      if (!course) throw new TRPCError({ code: "NOT_FOUND", message: "课程不存在" });
+
+      const chapter = await db.getCourseChapterById(input.chapterId);
+      if (!chapter || chapter.courseId !== input.courseId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "章节不存在" });
+      }
+
+      const material = await db.getLearningMaterialById(course.materialId);
+      if (!material) throw new TRPCError({ code: "NOT_FOUND", message: "源资料不存在" });
+
+      // Delete existing pages first (regenerate)
+      await db.deletePagesByChapterId(chapter.id);
+
+      // Generate pages using LLM
+      const pages = await generateChapterPages(
+        material.content,
+        chapter.title,
+        (chapter.objectives as string[]) || [],
+        (chapter.keyPoints as string[]) || [],
+        course.subject,
+        material.gradeLevel,
+        input.pageCount
+      );
+
+      // Save pages to database
+      const savedPages = await db.createChapterPagesBatch(
+        pages.map(p => ({
+          chapterId: chapter.id,
+          pageIndex: p.pageIndex,
+          title: p.title,
+          content: p.content,
+          hasQuiz: false,
+        }))
+      );
+
+      // Generate questions for each page
+      let questionsGenerated = 0;
+      for (const savedPage of savedPages) {
+        try {
+          const questions = await generatePageQuestions(
+            savedPage.content,
+            savedPage.title,
+            chapter.title,
+            course.subject,
+            material.gradeLevel
+          );
+
+          if (questions.length > 0) {
+            await db.createPageQuestionsBatch(
+              questions.map(q => ({
+                pageId: savedPage.id,
+                questionIndex: q.questionIndex,
+                questionType: q.questionType,
+                question: q.question,
+                options: q.options,
+                correctAnswer: q.correctAnswer,
+                explanation: q.explanation,
+              }))
+            );
+            await db.updateChapterPage(savedPage.id, { hasQuiz: true });
+            questionsGenerated += questions.length;
+          }
+        } catch (err) {
+          console.error(`[Course] Failed to generate questions for page ${savedPage.id}:`, err);
+        }
+      }
+
+      // Mark chapter as generated
+      await db.updateCourseChapter(chapter.id, { isGenerated: true });
+
+      return {
+        chapterId: chapter.id,
+        pagesGenerated: savedPages.length,
+        questionsGenerated,
+      };
+    }),
+
+  /** Generate pages for ALL chapters of a course (admin) */
+  generateAllPages: adminProcedure
+    .input(z.object({
+      courseId: z.number().int().positive(),
+      pageCount: z.number().int().min(5).max(25).optional().default(15),
+    }))
+    .mutation(async ({ input }) => {
+      const course = await db.getGeneratedCourseById(input.courseId);
+      if (!course) throw new TRPCError({ code: "NOT_FOUND", message: "课程不存在" });
+
+      const material = await db.getLearningMaterialById(course.materialId);
+      if (!material) throw new TRPCError({ code: "NOT_FOUND", message: "源资料不存在" });
+
+      const chapters = await db.getChaptersByCourseId(input.courseId);
+      let totalPages = 0;
+      let totalQuestions = 0;
+
+      for (const chapter of chapters) {
+        try {
+          // Delete existing pages
+          await db.deletePagesByChapterId(chapter.id);
+
+          const pages = await generateChapterPages(
+            material.content,
+            chapter.title,
+            (chapter.objectives as string[]) || [],
+            (chapter.keyPoints as string[]) || [],
+            course.subject,
+            material.gradeLevel,
+            input.pageCount
+          );
+
+          const savedPages = await db.createChapterPagesBatch(
+            pages.map(p => ({
+              chapterId: chapter.id,
+              pageIndex: p.pageIndex,
+              title: p.title,
+              content: p.content,
+              hasQuiz: false,
+            }))
+          );
+
+          totalPages += savedPages.length;
+
+          for (const savedPage of savedPages) {
+            try {
+              const questions = await generatePageQuestions(
+                savedPage.content,
+                savedPage.title,
+                chapter.title,
+                course.subject,
+                material.gradeLevel
+              );
+
+              if (questions.length > 0) {
+                await db.createPageQuestionsBatch(
+                  questions.map(q => ({
+                    pageId: savedPage.id,
+                    questionIndex: q.questionIndex,
+                    questionType: q.questionType,
+                    question: q.question,
+                    options: q.options,
+                    correctAnswer: q.correctAnswer,
+                    explanation: q.explanation,
+                  }))
+                );
+                await db.updateChapterPage(savedPage.id, { hasQuiz: true });
+                totalQuestions += questions.length;
+              }
+            } catch (err) {
+              console.error(`[Course] Failed to generate questions for page ${savedPage.id}:`, err);
+            }
+          }
+
+          await db.updateCourseChapter(chapter.id, { isGenerated: true });
+        } catch (err) {
+          console.error(`[Course] Failed to generate pages for chapter ${chapter.id}:`, err);
+        }
+      }
+
+      return { chaptersProcessed: chapters.length, totalPages, totalQuestions };
+    }),
+
+  /** Get chapter pages with questions for student learning */
+  chapterPages: protectedProcedure
+    .input(z.object({
+      courseId: z.number().int().positive(),
+      chapterId: z.number().int().positive(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const course = await db.getGeneratedCourseById(input.courseId);
+      if (!course || course.status !== "published") {
+        throw new TRPCError({ code: "NOT_FOUND", message: "课程不存在或未发布" });
+      }
+
+      const chapter = await db.getCourseChapterById(input.chapterId);
+      if (!chapter || chapter.courseId !== input.courseId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "章节不存在" });
+      }
+
+      const pages = await db.getPagesByChapterId(input.chapterId);
+      const pageProgress = await db.getChapterPageProgress(ctx.user.id, input.chapterId);
+
+      // Get questions and answers for each page
+      const pagesWithQuiz = await Promise.all(
+        pages.map(async (page) => {
+          const questions = await db.getQuestionsByPageId(page.id);
+          const answers = await db.getStudentAnswersForPage(ctx.user.id, page.id);
+          const pagePassed = pageProgress.pageStatuses.find(ps => ps.pageId === page.id)?.passed ?? false;
+
+          return {
+            ...page,
+            questions: questions.map(q => ({
+              id: q.id,
+              questionIndex: q.questionIndex,
+              questionType: q.questionType,
+              question: q.question,
+              options: q.options as string[],
+              // Only reveal correct answer and explanation if student already answered correctly
+              correctAnswer: answers.some(a => a.questionId === q.id && a.isCorrect) ? q.correctAnswer : null,
+              explanation: answers.some(a => a.questionId === q.id && a.isCorrect) ? q.explanation : null,
+            })),
+            passed: pagePassed,
+            studentAnswers: answers.map(a => ({
+              questionId: a.questionId,
+              answer: a.answer,
+              isCorrect: a.isCorrect,
+              attemptNumber: a.attemptNumber,
+            })),
+          };
+        })
+      );
+
+      return {
+        chapter: {
+          id: chapter.id,
+          title: chapter.title,
+          chapterIndex: chapter.chapterIndex,
+          objectives: chapter.objectives,
+          keyPoints: chapter.keyPoints,
+        },
+        pages: pagesWithQuiz,
+        progress: pageProgress,
+      };
+    }),
+
+  /** Submit answer for a question */
+  submitAnswer: protectedProcedure
+    .input(z.object({
+      courseId: z.number().int().positive(),
+      chapterId: z.number().int().positive(),
+      pageId: z.number().int().positive(),
+      questionId: z.number().int().positive(),
+      answer: z.string().min(1),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify the question exists
+      const question = await db.getQuestionById(input.questionId);
+      if (!question || question.pageId !== input.pageId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "题目不存在" });
+      }
+
+      // Check if student already answered this question correctly
+      const existingAnswers = await db.getStudentAnswersForPage(ctx.user.id, input.pageId);
+      const alreadyCorrect = existingAnswers.some(
+        a => a.questionId === input.questionId && a.isCorrect
+      );
+      if (alreadyCorrect) {
+        return {
+          isCorrect: true,
+          correctAnswer: question.correctAnswer,
+          explanation: question.explanation,
+          alreadyAnswered: true,
+        };
+      }
+
+      // Calculate attempt number
+      const previousAttempts = existingAnswers.filter(a => a.questionId === input.questionId);
+      const attemptNumber = previousAttempts.length + 1;
+
+      // Check answer
+      const isCorrect = input.answer === question.correctAnswer;
+
+      // Save answer
+      await db.createStudentAnswer({
+        userId: ctx.user.id,
+        questionId: input.questionId,
+        pageId: input.pageId,
+        chapterId: input.chapterId,
+        courseId: input.courseId,
+        answer: input.answer,
+        isCorrect,
+        attemptNumber,
+      });
+
+      // Check if all questions on this page are now correct
+      const pagePassed = await db.hasStudentPassedPage(ctx.user.id, input.pageId);
+
+      // If page passed, check if entire chapter is passed
+      let chapterPassed = false;
+      if (pagePassed) {
+        chapterPassed = await db.hasStudentPassedChapter(ctx.user.id, input.chapterId);
+
+        // If chapter passed, update course progress
+        if (chapterPassed) {
+          const course = await db.getGeneratedCourseById(input.courseId);
+          const chapter = await db.getCourseChapterById(input.chapterId);
+          if (course && chapter) {
+            const progress = await db.getOrCreateProgress(ctx.user.id, input.courseId);
+            const newCompleted = Math.max(progress.lastCompletedChapter, chapter.chapterIndex);
+            const isFullyCompleted = newCompleted >= course.chapterCount;
+            await db.updateCourseProgress(progress.id, {
+              lastCompletedChapter: newCompleted,
+              status: isFullyCompleted ? "completed" : "in_progress",
+              startedAt: progress.startedAt || new Date(),
+              completedAt: isFullyCompleted ? new Date() : null,
+            });
+          }
+        }
+      }
+
+      return {
+        isCorrect,
+        correctAnswer: isCorrect ? question.correctAnswer : null,
+        explanation: isCorrect ? question.explanation : null,
+        alreadyAnswered: false,
+        pagePassed,
+        chapterPassed,
+        attemptNumber,
+      };
+    }),
+
+  /** Check if student can access a specific chapter (must have passed all previous chapters) */
+  canAccessChapter: protectedProcedure
+    .input(z.object({
+      courseId: z.number().int().positive(),
+      chapterId: z.number().int().positive(),
+    }))
+    .query(async ({ ctx, input }) => {
+      const course = await db.getGeneratedCourseById(input.courseId);
+      if (!course) return { canAccess: false, reason: "课程不存在" };
+
+      const chapter = await db.getCourseChapterById(input.chapterId);
+      if (!chapter || chapter.courseId !== input.courseId) {
+        return { canAccess: false, reason: "章节不存在" };
+      }
+
+      // First chapter is always accessible
+      if (chapter.chapterIndex === 1) return { canAccess: true, reason: null };
+
+      // Check if all previous chapters are passed
+      const allChapters = await db.getChaptersByCourseId(input.courseId);
+      for (const prevChapter of allChapters) {
+        if (prevChapter.chapterIndex >= chapter.chapterIndex) continue;
+        const passed = await db.hasStudentPassedChapter(ctx.user.id, prevChapter.id);
+        if (!passed) {
+          return {
+            canAccess: false,
+            reason: `请先完成第 ${prevChapter.chapterIndex} 章「${prevChapter.title}」的所有题目`,
+          };
+        }
+      }
+
+      return { canAccess: true, reason: null };
+    }),
+
+  /** Admin: get pages for a chapter (for preview) */
+  adminChapterPages: adminProcedure
+    .input(z.object({ chapterId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const pages = await db.getPagesByChapterId(input.chapterId);
+      const pagesWithQuiz = await Promise.all(
+        pages.map(async (page) => {
+          const questions = await db.getQuestionsByPageId(page.id);
+          return { ...page, questions };
+        })
+      );
+      return pagesWithQuiz;
+    }),
 });
 
 // ==================== APP ROUTER ====================

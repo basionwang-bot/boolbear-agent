@@ -1,6 +1,6 @@
 import { eq, desc, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, parentShareTokens, learningMaterials, generatedCourses, courseChapters, studentCourseProgress, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint, type InsertParentShareToken, type InsertLearningMaterial, type InsertGeneratedCourse, type InsertCourseChapter, type InsertStudentCourseProgress } from "../drizzle/schema";
+import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, parentShareTokens, learningMaterials, generatedCourses, courseChapters, studentCourseProgress, chapterPages, pageQuestions, studentAnswers, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint, type InsertParentShareToken, type InsertLearningMaterial, type InsertGeneratedCourse, type InsertCourseChapter, type InsertStudentCourseProgress, type InsertChapterPage, type InsertPageQuestion, type InsertStudentAnswer } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -824,4 +824,198 @@ export async function getStudentCourseProgressList(userId: number) {
   if (!db) return [];
   return db.select().from(studentCourseProgress)
     .where(eq(studentCourseProgress.userId, userId));
+}
+
+
+// ==================== CHAPTER PAGES QUERIES ====================
+
+export async function createChapterPage(data: InsertChapterPage) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(chapterPages).values(data);
+  return { id: result[0].insertId, ...data };
+}
+
+export async function createChapterPagesBatch(dataList: InsertChapterPage[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  if (dataList.length === 0) return [];
+  await db.insert(chapterPages).values(dataList);
+  // Return the pages for this chapter
+  return db.select().from(chapterPages)
+    .where(eq(chapterPages.chapterId, dataList[0].chapterId))
+    .orderBy(chapterPages.pageIndex);
+}
+
+export async function getPagesByChapterId(chapterId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(chapterPages)
+    .where(eq(chapterPages.chapterId, chapterId))
+    .orderBy(chapterPages.pageIndex);
+}
+
+export async function getChapterPageById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(chapterPages).where(eq(chapterPages.id, id));
+  return rows[0];
+}
+
+export async function updateChapterPage(id: number, data: Partial<InsertChapterPage>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(chapterPages).set(data).where(eq(chapterPages.id, id));
+}
+
+export async function deletePagesByChapterId(chapterId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // First delete questions for all pages of this chapter
+  const pages = await db.select({ id: chapterPages.id }).from(chapterPages)
+    .where(eq(chapterPages.chapterId, chapterId));
+  for (const page of pages) {
+    await db.delete(pageQuestions).where(eq(pageQuestions.pageId, page.id));
+  }
+  await db.delete(chapterPages).where(eq(chapterPages.chapterId, chapterId));
+}
+
+// ==================== PAGE QUESTIONS QUERIES ====================
+
+export async function createPageQuestionsBatch(dataList: InsertPageQuestion[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  if (dataList.length === 0) return [];
+  await db.insert(pageQuestions).values(dataList);
+  return db.select().from(pageQuestions)
+    .where(eq(pageQuestions.pageId, dataList[0].pageId))
+    .orderBy(pageQuestions.questionIndex);
+}
+
+export async function getQuestionsByPageId(pageId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(pageQuestions)
+    .where(eq(pageQuestions.pageId, pageId))
+    .orderBy(pageQuestions.questionIndex);
+}
+
+export async function getQuestionById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(pageQuestions).where(eq(pageQuestions.id, id));
+  return rows[0];
+}
+
+// ==================== STUDENT ANSWERS QUERIES ====================
+
+export async function createStudentAnswer(data: InsertStudentAnswer) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(studentAnswers).values(data);
+  return { id: result[0].insertId, ...data };
+}
+
+export async function getStudentAnswersForPage(userId: number, pageId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(studentAnswers)
+    .where(and(
+      eq(studentAnswers.userId, userId),
+      eq(studentAnswers.pageId, pageId)
+    ))
+    .orderBy(desc(studentAnswers.createdAt));
+}
+
+export async function getStudentAnswersForChapter(userId: number, chapterId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(studentAnswers)
+    .where(and(
+      eq(studentAnswers.userId, userId),
+      eq(studentAnswers.chapterId, chapterId)
+    ))
+    .orderBy(studentAnswers.createdAt);
+}
+
+export async function getStudentAnswersForCourse(userId: number, courseId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(studentAnswers)
+    .where(and(
+      eq(studentAnswers.userId, userId),
+      eq(studentAnswers.courseId, courseId)
+    ))
+    .orderBy(studentAnswers.createdAt);
+}
+
+/**
+ * Check if a student has passed all questions on a page (all correct on latest attempt).
+ */
+export async function hasStudentPassedPage(userId: number, pageId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  
+  // Get all questions for this page
+  const questions = await db.select({ id: pageQuestions.id }).from(pageQuestions)
+    .where(eq(pageQuestions.pageId, pageId));
+  
+  if (questions.length === 0) return true; // No questions = auto-pass
+  
+  // For each question, check if the student has at least one correct answer
+  for (const q of questions) {
+    const correctAnswers = await db.select().from(studentAnswers)
+      .where(and(
+        eq(studentAnswers.userId, userId),
+        eq(studentAnswers.questionId, q.id),
+        eq(studentAnswers.isCorrect, true)
+      ))
+      .limit(1);
+    if (correctAnswers.length === 0) return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Check if a student has passed all pages in a chapter.
+ */
+export async function hasStudentPassedChapter(userId: number, chapterId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  
+  const pages = await db.select({ id: chapterPages.id }).from(chapterPages)
+    .where(eq(chapterPages.chapterId, chapterId));
+  
+  if (pages.length === 0) return true;
+  
+  for (const page of pages) {
+    const passed = await hasStudentPassedPage(userId, page.id);
+    if (!passed) return false;
+  }
+  
+  return true;
+}
+
+/**
+ * Get the student's progress summary for a chapter (which pages are passed).
+ */
+export async function getChapterPageProgress(userId: number, chapterId: number) {
+  const db = await getDb();
+  if (!db) return { totalPages: 0, passedPages: 0, pageStatuses: [] as { pageId: number; pageIndex: number; passed: boolean }[] };
+  
+  const pages = await db.select().from(chapterPages)
+    .where(eq(chapterPages.chapterId, chapterId))
+    .orderBy(chapterPages.pageIndex);
+  
+  const pageStatuses: { pageId: number; pageIndex: number; passed: boolean }[] = [];
+  let passedPages = 0;
+  
+  for (const page of pages) {
+    const passed = await hasStudentPassedPage(userId, page.id);
+    pageStatuses.push({ pageId: page.id, pageIndex: page.pageIndex, passed });
+    if (passed) passedPages++;
+  }
+  
+  return { totalPages: pages.length, passedPages, pageStatuses };
 }

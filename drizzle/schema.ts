@@ -301,3 +301,78 @@ export const studentCourseProgress = mysqlTable("student_course_progress", {
 
 export type StudentCourseProgress = typeof studentCourseProgress.$inferSelect;
 export type InsertStudentCourseProgress = typeof studentCourseProgress.$inferInsert;
+
+/**
+ * Chapter pages table — each chapter is split into ~15 bite-sized pages.
+ * Each page contains a small amount of knowledge content.
+ */
+export const chapterPages = mysqlTable("chapter_pages", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Parent chapter ID */
+  chapterId: int("chapterId").notNull(),
+  /** Page order index within the chapter (1-based) */
+  pageIndex: int("pageIndex").notNull(),
+  /** Page title / heading */
+  title: varchar("title", { length: 256 }).notNull(),
+  /** Page content in Markdown (short, focused) */
+  content: text("content").notNull(),
+  /** Whether this page has quiz questions generated */
+  hasQuiz: boolean("hasQuiz").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type ChapterPage = typeof chapterPages.$inferSelect;
+export type InsertChapterPage = typeof chapterPages.$inferInsert;
+
+/**
+ * Page questions table — quiz questions (multiple choice / true-false) for each page.
+ * Students must answer all questions correctly to proceed.
+ */
+export const pageQuestions = mysqlTable("page_questions", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Parent page ID */
+  pageId: int("pageId").notNull(),
+  /** Question order index within the page (1-based) */
+  questionIndex: int("questionIndex").notNull(),
+  /** Question type: choice (4 options) or truefalse */
+  questionType: mysqlEnum("questionType", ["choice", "truefalse"]).notNull(),
+  /** The question text */
+  question: text("question").notNull(),
+  /** Options as JSON array (for choice: ["A. ...", "B. ...", "C. ...", "D. ..."], for truefalse: ["对", "错"]) */
+  options: json("options").notNull(),
+  /** Correct answer: "A"/"B"/"C"/"D" for choice, "true"/"false" for truefalse */
+  correctAnswer: varchar("correctAnswer", { length: 16 }).notNull(),
+  /** Explanation shown after answering */
+  explanation: text("explanation"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type PageQuestion = typeof pageQuestions.$inferSelect;
+export type InsertPageQuestion = typeof pageQuestions.$inferInsert;
+
+/**
+ * Student answers table — records each student's answer to each question.
+ */
+export const studentAnswers = mysqlTable("student_answers", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Student user ID */
+  userId: int("userId").notNull(),
+  /** Question ID */
+  questionId: int("questionId").notNull(),
+  /** Page ID (denormalized for efficient queries) */
+  pageId: int("pageId").notNull(),
+  /** Chapter ID (denormalized for efficient queries) */
+  chapterId: int("chapterId").notNull(),
+  /** Course ID (denormalized for efficient queries) */
+  courseId: int("courseId").notNull(),
+  /** Student's answer */
+  answer: varchar("answer", { length: 16 }).notNull(),
+  /** Whether the answer was correct */
+  isCorrect: boolean("isCorrect").notNull(),
+  /** Attempt number (1 = first try, 2 = retry, etc.) */
+  attemptNumber: int("attemptNumber").default(1).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type StudentAnswer = typeof studentAnswers.$inferSelect;
+export type InsertStudentAnswer = typeof studentAnswers.$inferInsert;
