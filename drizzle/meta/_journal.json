@@ -15,6 +15,13 @@
       "when": 1773935719835,
       "tag": "0001_nostalgic_snowbird",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1774077900056,
+      "tag": "0002_many_psylocke",
+      "breakpoints": true
     }
   ]
 }

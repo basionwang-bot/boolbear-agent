@@ -9,6 +9,7 @@ import { nanoid } from "nanoid";
 import * as db from "./db";
 import { sdk } from "./_core/sdk";
 import { ONE_YEAR_MS } from "@shared/const";
+import { extractAndSaveKnowledgePoints } from "./knowledgeExtractor";
 
 // ==================== AUTH ROUTER ====================
 
@@ -317,7 +318,50 @@ const adminRouter = router({
     }),
 });
 
-// ==================== APP ROUTER ====================
+// ==================== KNOWLEDGE ROUTER ====================
+
+const knowledgeRouter = router({
+  /** Get current user's knowledge points */
+  list: protectedProcedure.query(async ({ ctx }) => {
+    return db.getKnowledgePointsByUserId(ctx.user.id);
+  }),
+
+  /** Get knowledge point statistics for current user */
+  stats: protectedProcedure.query(async ({ ctx }) => {
+    return db.getKnowledgePointStats(ctx.user.id);
+  }),
+
+  /** Manually trigger knowledge extraction for a specific conversation */
+  extract: protectedProcedure
+    .input(z.object({ conversationId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      // Verify ownership
+      const conv = await db.getConversationById(input.conversationId);
+      if (!conv || conv.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "对话不存在" });
+      }
+      return extractAndSaveKnowledgePoints(input.conversationId, ctx.user.id);
+    }),
+
+  /** Extract knowledge points from all conversations (batch) */
+  extractAll: protectedProcedure.mutation(async ({ ctx }) => {
+    const conversations = await db.getConversationsByUserId(ctx.user.id);
+    let totalAdded = 0;
+    let totalUpdated = 0;
+    for (const conv of conversations) {
+      try {
+        const { added, updated } = await extractAndSaveKnowledgePoints(conv.id, ctx.user.id);
+        totalAdded += added;
+        totalUpdated += updated;
+      } catch (err) {
+        console.error(`[Knowledge] Failed to extract from conversation ${conv.id}:`, err);
+      }
+    }
+    return { added: totalAdded, updated: totalUpdated };
+  }),
+});
+
+// ==================== APP ROUTER ==
 
 export const appRouter = router({
   system: systemRouter,
@@ -326,6 +370,7 @@ export const appRouter = router({
   bear: bearRouter,
   conversation: conversationRouter,
   admin: adminRouter,
+  knowledge: knowledgeRouter,
 });
 
 export type AppRouter = typeof appRouter;

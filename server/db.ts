@@ -1,6 +1,6 @@
 import { eq, desc, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { InsertUser, users, classes, bears, conversations, messages, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage } from "../drizzle/schema";
+import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -256,6 +256,54 @@ export async function getMessagesByConversationId(conversationId: number) {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(messages).where(eq(messages.conversationId, conversationId)).orderBy(messages.createdAt);
+}
+
+// ==================== KNOWLEDGE POINT QUERIES ====================
+
+export async function createKnowledgePoint(data: InsertKnowledgePoint) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(knowledgePoints).values(data);
+}
+
+export async function getKnowledgePointsByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(knowledgePoints)
+    .where(eq(knowledgePoints.userId, userId))
+    .orderBy(desc(knowledgePoints.lastMentionedAt));
+}
+
+export async function getKnowledgePointByNameAndUser(userId: number, name: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(knowledgePoints)
+    .where(and(eq(knowledgePoints.userId, userId), eq(knowledgePoints.name, name)))
+    .limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+export async function updateKnowledgePoint(id: number, data: Partial<InsertKnowledgePoint>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(knowledgePoints).set(data).where(eq(knowledgePoints.id, id));
+}
+
+export async function getKnowledgePointStats(userId: number) {
+  const db = await getDb();
+  if (!db) return { total: 0, subjects: {} as Record<string, number>, avgMastery: 0 };
+  const points = await db.select().from(knowledgePoints).where(eq(knowledgePoints.userId, userId));
+  const subjects: Record<string, number> = {};
+  let totalMastery = 0;
+  for (const p of points) {
+    subjects[p.subject] = (subjects[p.subject] || 0) + 1;
+    totalMastery += p.mastery;
+  }
+  return {
+    total: points.length,
+    subjects,
+    avgMastery: points.length > 0 ? Math.round(totalMastery / points.length) : 0,
+  };
 }
 
 // ==================== DELETE QUERIES ====================

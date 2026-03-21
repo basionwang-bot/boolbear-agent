@@ -122,3 +122,34 @@ export const messages = mysqlTable("messages", {
 
 export type Message = typeof messages.$inferSelect;
 export type InsertMessage = typeof messages.$inferInsert;
+
+/**
+ * Knowledge points table — extracted from conversation history via LLM analysis.
+ * Tracks what subjects/topics the student has been learning.
+ */
+export const knowledgePoints = mysqlTable("knowledge_points", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Owner user ID */
+  userId: int("userId").notNull(),
+  /** Source conversation ID */
+  conversationId: int("conversationId"),
+  /** Knowledge point name, e.g. "二次方程" */
+  name: varchar("name", { length: 128 }).notNull(),
+  /** Subject/category, e.g. "数学", "语文", "英语" */
+  subject: varchar("subject", { length: 64 }).notNull(),
+  /** Detailed description of the knowledge point */
+  description: text("description"),
+  /** Mastery level: 0-100 */
+  mastery: int("mastery").default(30).notNull(),
+  /** Difficulty level */
+  difficulty: mysqlEnum("difficulty", ["easy", "medium", "hard"]).default("medium").notNull(),
+  /** Number of times this topic was discussed */
+  mentionCount: int("mentionCount").default(1).notNull(),
+  /** Last time this knowledge point was discussed */
+  lastMentionedAt: timestamp("lastMentionedAt").defaultNow().notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type KnowledgePoint = typeof knowledgePoints.$inferSelect;
+export type InsertKnowledgePoint = typeof knowledgePoints.$inferInsert;

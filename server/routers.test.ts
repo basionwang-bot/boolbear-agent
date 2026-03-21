@@ -11,7 +11,8 @@ let mockClasses: any[] = [];
 let mockBears: any[] = [];
 let mockConversations: any[] = [];
 let mockMessages: any[] = [];
-let autoId = { user: 100, class: 100, bear: 100, conv: 100, msg: 100 };
+let mockKnowledgePoints: any[] = [];
+let autoId = { user: 100, class: 100, bear: 100, conv: 100, msg: 100, kp: 100 };
 
 vi.mock("./db", () => ({
   getUserByUsername: vi.fn(async (username: string) => {
@@ -125,6 +126,44 @@ vi.mock("./db", () => ({
     return msg;
   }),
   updateConversation: vi.fn(async () => {}),
+  deleteUserAndRelatedData: vi.fn(async (userId: number) => {
+    const idx = mockUsers.findIndex((u) => u.id === userId);
+    if (idx === -1) throw new Error("User not found");
+    mockBears = mockBears.filter((b) => b.userId !== userId);
+    mockConversations = mockConversations.filter((c) => c.userId !== userId);
+    mockUsers.splice(idx, 1);
+    return { success: true };
+  }),
+  getKnowledgePointsByUserId: vi.fn(async (userId: number) => {
+    return mockKnowledgePoints.filter((kp) => kp.userId === userId);
+  }),
+  getKnowledgePointStats: vi.fn(async (userId: number) => {
+    const points = mockKnowledgePoints.filter((kp) => kp.userId === userId);
+    const subjects: Record<string, number> = {};
+    let totalMastery = 0;
+    for (const p of points) {
+      subjects[p.subject] = (subjects[p.subject] || 0) + 1;
+      totalMastery += p.mastery;
+    }
+    return {
+      total: points.length,
+      subjects,
+      avgMastery: points.length > 0 ? Math.round(totalMastery / points.length) : 0,
+    };
+  }),
+  getKnowledgePointByNameAndUser: vi.fn(async (userId: number, name: string) => {
+    return mockKnowledgePoints.find((kp) => kp.userId === userId && kp.name === name) || undefined;
+  }),
+  createKnowledgePoint: vi.fn(async (data: any) => {
+    const kp = { id: autoId.kp++, ...data, createdAt: new Date(), updatedAt: new Date() };
+    mockKnowledgePoints.push(kp);
+    return kp;
+  }),
+  updateKnowledgePoint: vi.fn(async (id: number, data: any) => {
+    const kp = mockKnowledgePoints.find((k) => k.id === id);
+    if (kp) Object.assign(kp, data);
+    return kp;
+  }),
 }));
 
 // Mock sdk.createSessionToken
@@ -194,7 +233,8 @@ beforeEach(() => {
   mockBears = [];
   mockConversations = [];
   mockMessages = [];
-  autoId = { user: 100, class: 100, bear: 100, conv: 100, msg: 100 };
+  mockKnowledgePoints = [];
+  autoId = { user: 100, class: 100, bear: 100, conv: 100, msg: 100, kp: 100 };
   vi.clearAllMocks();
 });
 
@@ -708,5 +748,187 @@ describe("admin router", () => {
     expect(result[0].username).toBe("user1");
     expect(result[0].bear?.bearName).toBe("Test Bear");
     expect(result[0].className).toBe("Class 1");
+  });
+});
+
+
+// ==================== KNOWLEDGE ROUTER ====================
+
+// Mock the knowledgeExtractor module
+vi.mock("./knowledgeExtractor", () => ({
+  extractKnowledgePoints: vi.fn(async () => [
+    {
+      name: "二次方程",
+      subject: "数学",
+      difficulty: "medium",
+      mastery: 60,
+      description: "一元二次方程的求解方法",
+    },
+    {
+      name: "光合作用",
+      subject: "生物",
+      difficulty: "easy",
+      mastery: 80,
+      description: "植物通过光合作用产生能量",
+    },
+  ]),
+  extractAndSaveKnowledgePoints: vi.fn(async (conversationId: number, userId: number) => {
+    return { extracted: 2, updated: 0, total: 2 };
+  }),
+}));
+
+describe("knowledge router", () => {
+  it("list: returns knowledge points for authenticated user", async () => {
+    const ctx = createUserContext();
+
+    // Pre-populate knowledge points
+    mockKnowledgePoints.push(
+      {
+        id: 1,
+        userId: ctx.user!.id,
+        conversationId: 1,
+        name: "二次方程",
+        subject: "数学",
+        difficulty: "medium",
+        mastery: 60,
+        mentionCount: 3,
+        description: "一元二次方程的求解方法",
+        lastMentionedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 2,
+        userId: ctx.user!.id,
+        conversationId: 1,
+        name: "光合作用",
+        subject: "生物",
+        difficulty: "easy",
+        mastery: 80,
+        mentionCount: 2,
+        description: "植物通过光合作用产生能量",
+        lastMentionedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+    );
+
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.knowledge.list();
+
+    expect(result).toHaveLength(2);
+    expect(result[0].name).toBe("二次方程");
+    expect(result[1].name).toBe("光合作用");
+  });
+
+  it("list: returns empty array when no knowledge points", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.knowledge.list();
+
+    expect(result).toHaveLength(0);
+  });
+
+  it("stats: returns knowledge point statistics", async () => {
+    const ctx = createUserContext();
+
+    mockKnowledgePoints.push(
+      {
+        id: 1,
+        userId: ctx.user!.id,
+        conversationId: 1,
+        name: "二次方程",
+        subject: "数学",
+        difficulty: "medium",
+        mastery: 60,
+        mentionCount: 3,
+        description: "一元二次方程的求解方法",
+        lastMentionedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 2,
+        userId: ctx.user!.id,
+        conversationId: 1,
+        name: "函数",
+        subject: "数学",
+        difficulty: "hard",
+        mastery: 40,
+        mentionCount: 1,
+        description: "函数的基本概念",
+        lastMentionedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      },
+      {
+        id: 3,
+        userId: ctx.user!.id,
+        conversationId: 2,
+        name: "光合作用",
+        subject: "生物",
+        difficulty: "easy",
+        mastery: 80,
+        mentionCount: 2,
+        description: "植物通过光合作用产生能量",
+        lastMentionedAt: new Date(),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      }
+    );
+
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.knowledge.stats();
+
+    expect(result.total).toBe(3);
+    expect(result.subjects["数学"]).toBe(2);
+    expect(result.subjects["生物"]).toBe(1);
+    expect(result.avgMastery).toBe(60); // (60+40+80)/3 = 60
+  });
+
+  it("stats: returns zero stats when no knowledge points", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.knowledge.stats();
+
+    expect(result.total).toBe(0);
+    expect(result.avgMastery).toBe(0);
+  });
+
+  it("extract: requires authenticated user", async () => {
+    const ctx = createPublicContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.knowledge.extract({ conversationId: 1 })
+    ).rejects.toThrow();
+  });
+
+  it("extract: extracts knowledge points from conversation", async () => {
+    const ctx = createUserContext();
+
+    // Setup conversation with messages
+    mockConversations.push({
+      id: 1,
+      userId: ctx.user!.id,
+      bearId: 1,
+      title: "数学学习",
+      messageCount: 4,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    mockMessages.push(
+      { id: 1, conversationId: 1, role: "user", content: "什么是二次方程？", createdAt: new Date() },
+      { id: 2, conversationId: 1, role: "assistant", content: "二次方程是...", createdAt: new Date() },
+      { id: 3, conversationId: 1, role: "user", content: "光合作用是什么？", createdAt: new Date() },
+      { id: 4, conversationId: 1, role: "assistant", content: "光合作用是植物...", createdAt: new Date() }
+    );
+
+    const caller = appRouter.createCaller(ctx);
+    const result = await caller.knowledge.extract({ conversationId: 1 });
+
+    expect(result).toBeDefined();
+    expect(result.extracted).toBeGreaterThanOrEqual(0);
   });
 });
