@@ -6,7 +6,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "wouter";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Home, MessageCircle, BarChart3, Users, Heart, BookOpen, LogIn, LogOut, Shield } from "lucide-react";
+import { Menu, X, Home, MessageCircle, BarChart3, Users, Heart, BookOpen, LogIn, LogOut, Shield, GraduationCap } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { BEAR_IMAGES } from "@/lib/bearAssets";
 
@@ -17,6 +17,7 @@ const navLinks = [
   { href: "/square", label: "熊熊广场", icon: Users },
   { href: "/adopt", label: "领养小熊", icon: Heart },
   { href: "/gallery", label: "熊熊图鉴", icon: BookOpen },
+  { href: "/courses", label: "学习课程", icon: GraduationCap },
 ];
 
 export default function Navbar() {

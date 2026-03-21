@@ -188,3 +188,114 @@ export const parentShareTokens = mysqlTable("parent_share_tokens", {
 
 export type ParentShareToken = typeof parentShareTokens.$inferSelect;
 export type InsertParentShareToken = typeof parentShareTokens.$inferInsert;
+
+/**
+ * Learning materials table — uploaded by admin/teachers.
+ * Stores the raw content (Markdown) that AI uses to generate courses.
+ */
+export const learningMaterials = mysqlTable("learning_materials", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Material title */
+  title: varchar("title", { length: 256 }).notNull(),
+  /** Brief description of the material */
+  description: text("description"),
+  /** Full content in Markdown format */
+  content: text("content").notNull(),
+  /** Subject category */
+  subject: varchar("subject", { length: 64 }).notNull(),
+  /** Grade level or target audience */
+  gradeLevel: varchar("gradeLevel", { length: 64 }),
+  /** Admin user who uploaded this material */
+  createdBy: int("createdBy").notNull(),
+  /** Whether this material is published and visible to students */
+  isPublished: boolean("isPublished").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type LearningMaterial = typeof learningMaterials.$inferSelect;
+export type InsertLearningMaterial = typeof learningMaterials.$inferInsert;
+
+/**
+ * Generated courses table — AI-generated course outlines based on learning materials.
+ * Each material can have multiple courses (different versions or for different students).
+ */
+export const generatedCourses = mysqlTable("generated_courses", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Source learning material ID */
+  materialId: int("materialId").notNull(),
+  /** Course title (may differ from material title) */
+  title: varchar("title", { length: 256 }).notNull(),
+  /** Course description */
+  description: text("description"),
+  /** Subject category (inherited from material) */
+  subject: varchar("subject", { length: 64 }).notNull(),
+  /** Total number of chapters */
+  chapterCount: int("chapterCount").default(0).notNull(),
+  /** Total estimated learning time in minutes */
+  totalMinutes: int("totalMinutes").default(0).notNull(),
+  /** Course status: draft, published, archived */
+  status: mysqlEnum("status", ["draft", "published", "archived"]).default("draft").notNull(),
+  /** Admin who generated this course */
+  createdBy: int("createdBy").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type GeneratedCourse = typeof generatedCourses.$inferSelect;
+export type InsertGeneratedCourse = typeof generatedCourses.$inferInsert;
+
+/**
+ * Course chapters table — individual chapters within a generated course.
+ * Each chapter contains AI-generated educational content.
+ */
+export const courseChapters = mysqlTable("course_chapters", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Parent course ID */
+  courseId: int("courseId").notNull(),
+  /** Chapter order index (1-based) */
+  chapterIndex: int("chapterIndex").notNull(),
+  /** Chapter title */
+  title: varchar("title", { length: 256 }).notNull(),
+  /** Learning objectives for this chapter (JSON array of strings) */
+  objectives: json("objectives"),
+  /** Key knowledge points covered (JSON array of strings) */
+  keyPoints: json("keyPoints"),
+  /** Full chapter content in Markdown */
+  content: text("content"),
+  /** Estimated learning time in minutes */
+  estimatedMinutes: int("estimatedMinutes").default(30).notNull(),
+  /** Whether content has been generated */
+  isGenerated: boolean("isGenerated").default(false).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type CourseChapter = typeof courseChapters.$inferSelect;
+export type InsertCourseChapter = typeof courseChapters.$inferInsert;
+
+/**
+ * Student course progress table — tracks each student's progress through a course.
+ */
+export const studentCourseProgress = mysqlTable("student_course_progress", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Student user ID */
+  userId: int("userId").notNull(),
+  /** Course ID */
+  courseId: int("courseId").notNull(),
+  /** Last completed chapter index (0 = not started) */
+  lastCompletedChapter: int("lastCompletedChapter").default(0).notNull(),
+  /** Total time spent on this course in minutes */
+  timeSpentMinutes: int("timeSpentMinutes").default(0).notNull(),
+  /** Course completion status */
+  status: mysqlEnum("status", ["not_started", "in_progress", "completed"]).default("not_started").notNull(),
+  /** When the student started this course */
+  startedAt: timestamp("startedAt"),
+  /** When the student completed this course */
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type StudentCourseProgress = typeof studentCourseProgress.$inferSelect;
+export type InsertStudentCourseProgress = typeof studentCourseProgress.$inferInsert;

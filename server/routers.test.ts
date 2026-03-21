@@ -315,6 +315,45 @@ vi.mock("./db", () => ({
     ).length;
   }),
   updateConversationLearningTime: vi.fn(async () => {}),
+
+  // ==================== MATERIAL & COURSE MOCKS ====================
+  createLearningMaterial: vi.fn(async (data: any) => {
+    const mat = { id: autoId.st++, ...data, status: data.status || "draft", createdAt: new Date(), updatedAt: new Date() };
+    return mat;
+  }),
+  getLearningMaterialById: vi.fn(async (id: number) => {
+    return { id, title: "Test Material", description: "desc", content: "# Test\n\nContent here", subject: "数学", gradeLevel: "初中", status: "published", createdBy: 99, createdAt: new Date(), updatedAt: new Date() };
+  }),
+  listLearningMaterials: vi.fn(async () => []),
+  listPublishedMaterials: vi.fn(async () => []),
+  updateLearningMaterial: vi.fn(async () => {}),
+  deleteLearningMaterial: vi.fn(async () => {}),
+  createGeneratedCourse: vi.fn(async (data: any) => {
+    return { id: autoId.st++, ...data, status: data.status || "draft", createdAt: new Date(), updatedAt: new Date() };
+  }),
+  getGeneratedCourseById: vi.fn(async (id: number) => {
+    return { id, materialId: 1, title: "Test Course", description: "desc", subject: "数学", gradeLevel: "初中", chapterCount: 3, totalMinutes: 45, outline: { chapters: [] }, status: "published", createdBy: 99, createdAt: new Date(), updatedAt: new Date() };
+  }),
+  listCoursesByMaterialId: vi.fn(async () => []),
+  listPublishedCourses: vi.fn(async () => []),
+  updateGeneratedCourse: vi.fn(async () => {}),
+  deleteGeneratedCourse: vi.fn(async () => {}),
+  createCourseChapter: vi.fn(async (data: any) => {
+    return { id: autoId.st++, ...data, createdAt: new Date(), updatedAt: new Date() };
+  }),
+  getChaptersByCourseId: vi.fn(async () => [
+    { id: 1, courseId: 1, chapterIndex: 1, title: "Chapter 1", objectives: ["obj1"], keyPoints: ["kp1"], estimatedMinutes: 15, content: "# Ch1", isGenerated: true, createdAt: new Date(), updatedAt: new Date() },
+    { id: 2, courseId: 1, chapterIndex: 2, title: "Chapter 2", objectives: ["obj2"], keyPoints: ["kp2"], estimatedMinutes: 15, content: null, isGenerated: false, createdAt: new Date(), updatedAt: new Date() },
+  ]),
+  getCourseChapterById: vi.fn(async (id: number) => {
+    return { id, courseId: 1, chapterIndex: 1, title: "Chapter 1", objectives: ["obj1"], keyPoints: ["kp1"], estimatedMinutes: 15, content: "# Ch1", isGenerated: true, createdAt: new Date(), updatedAt: new Date() };
+  }),
+  updateCourseChapter: vi.fn(async () => {}),
+  getOrCreateProgress: vi.fn(async (userId: number, courseId: number) => {
+    return { id: 1, userId, courseId, lastCompletedChapter: 0, timeSpentMinutes: 0, status: "not_started" as const, startedAt: null, completedAt: null, createdAt: new Date(), updatedAt: new Date() };
+  }),
+  updateCourseProgress: vi.fn(async () => {}),
+  getStudentCourseProgressList: vi.fn(async () => []),
 }));
 
 // Mock sdk.createSessionToken
@@ -932,6 +971,20 @@ vi.mock("./knowledgeExtractor", () => ({
     }
     return { added: 2, updated: 0 };
   }),
+}));
+
+vi.mock("./courseGenerator", () => ({
+  generateCourseOutline: vi.fn(async () => ({
+    title: "AI生成的课程",
+    description: "基于学习资料生成的课程",
+    totalEstimatedMinutes: 45,
+    chapters: [
+      { chapterIndex: 1, title: "第一章", objectives: ["obj1"], keyPoints: ["kp1"], estimatedMinutes: 15, contentOutline: "outline1" },
+      { chapterIndex: 2, title: "第二章", objectives: ["obj2"], keyPoints: ["kp2"], estimatedMinutes: 15, contentOutline: "outline2" },
+      { chapterIndex: 3, title: "第三章", objectives: ["obj3"], keyPoints: ["kp3"], estimatedMinutes: 15, contentOutline: "outline3" },
+    ],
+  })),
+  generateChapterContent: vi.fn(async () => "# 章节内容\n\n这是生成的课程内容"),
 }));
 
 describe("knowledge router", () => {
@@ -1676,3 +1729,225 @@ describe("parent router - report generation limits", () => {
     expect(result.added).toBe(0);
     expect(result.updated).toBe(0);
   });
+
+
+// ==================== MATERIAL & COURSE ROUTER TESTS ====================
+
+describe("material router", () => {
+  it("create: admin can create a learning material", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.material.create({
+      title: "初中数学 - 一元二次方程",
+      content: "# 一元二次方程\n\n## 定义\n...",
+      subject: "数学",
+      gradeLevel: "初中",
+    });
+
+    expect(result).toBeDefined();
+    expect(result.title).toBe("初中数学 - 一元二次方程");
+    expect(result.subject).toBe("数学");
+  });
+
+  it("create: non-admin cannot create material", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.material.create({
+        title: "Test",
+        content: "Content",
+        subject: "数学",
+      })
+    ).rejects.toThrow();
+  });
+
+  it("list: admin can list all materials", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.material.list();
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("detail: admin can get material detail with courses", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.material.detail({ id: 1 });
+    expect(result).toBeDefined();
+    expect(result.title).toBe("Test Material");
+    expect(result.courses).toBeDefined();
+  });
+
+  it("update: admin can update a material", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.material.update({
+      id: 1,
+      title: "Updated Title",
+      subject: "语文",
+    });
+
+    expect(result.success).toBe(true);
+  });
+
+  it("delete: admin can delete a material", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.material.delete({ id: 1 });
+    expect(result.success).toBe(true);
+  });
+});
+
+describe("course router", () => {
+  it("generateOutline: admin can generate course outline from material", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.course.generateOutline({ materialId: 1 });
+    expect(result).toBeDefined();
+    expect(result.courseId).toBeDefined();
+    expect(result.outline).toBeDefined();
+    expect(result.outline.chapters).toHaveLength(3);
+  });
+
+  it("generateOutline: non-admin cannot generate outline", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.course.generateOutline({ materialId: 1 })
+    ).rejects.toThrow();
+  });
+
+  it("generateChapter: admin can generate chapter content", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.course.generateChapter({ courseId: 1, chapterId: 1 });
+    expect(result).toBeDefined();
+    expect(result.chapterId).toBe(1);
+    expect(result.content).toContain("章节内容");
+  });
+
+  it("generateAllChapters: admin can generate all chapters", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.course.generateAllChapters({ courseId: 1 });
+    expect(result).toBeDefined();
+    expect(result.total).toBe(2);
+    // Only non-generated chapters get generated (chapter 2 has isGenerated: false)
+    expect(result.generated).toBe(1);
+  });
+
+  it("publish: admin can publish a course", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.course.publish({ courseId: 1 });
+    expect(result.success).toBe(true);
+  });
+
+  it("archive: admin can archive a course", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.course.archive({ courseId: 1 });
+    expect(result.success).toBe(true);
+  });
+
+  it("deleteCourse: admin can delete a course", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.course.deleteCourse({ courseId: 1 });
+    expect(result.success).toBe(true);
+  });
+
+  it("adminDetail: admin can get course detail with chapters", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.course.adminDetail({ courseId: 1 });
+    expect(result).toBeDefined();
+    expect(result.title).toBe("Test Course");
+    expect(result.chapters).toHaveLength(2);
+    expect(result.materialTitle).toBe("Test Material");
+  });
+
+  it("listPublished: student can list published courses", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.course.listPublished();
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("detail: student can view published course detail", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.course.detail({ courseId: 1 });
+    expect(result).toBeDefined();
+    expect(result.title).toBe("Test Course");
+    expect(result.chapters).toHaveLength(2);
+    // Generated chapter should have content
+    expect(result.chapters[0].content).toBe("# Ch1");
+    // Non-generated chapter should have null content
+    expect(result.chapters[1].content).toBeNull();
+    expect(result.progress).toBeDefined();
+  });
+
+  it("updateProgress: student can update course progress", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.course.updateProgress({
+      courseId: 1,
+      lastCompletedChapter: 1,
+    });
+    expect(result.success).toBe(true);
+    expect(result.isCompleted).toBe(false);
+  });
+
+  it("updateProgress: marks course completed when all chapters done", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.course.updateProgress({
+      courseId: 1,
+      lastCompletedChapter: 3, // chapterCount is 3
+    });
+    expect(result.success).toBe(true);
+    expect(result.isCompleted).toBe(true);
+  });
+
+  it("myProgress: student can view their progress list", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.course.myProgress();
+    expect(Array.isArray(result)).toBe(true);
+  });
+
+  it("detail: rejects non-published course for student", async () => {
+    const { getGeneratedCourseById } = await import("./db");
+    (getGeneratedCourseById as any).mockResolvedValueOnce({
+      id: 2, materialId: 1, title: "Draft Course", status: "draft",
+      subject: "数学", chapterCount: 1, totalMinutes: 15,
+      createdBy: 99, createdAt: new Date(), updatedAt: new Date(),
+    });
+
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.course.detail({ courseId: 2 })
+    ).rejects.toThrow("课程不存在或未发布");
+  });
+});

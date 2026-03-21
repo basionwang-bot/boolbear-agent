@@ -46,3 +46,49 @@
 ## Bug Fixes
 
 - [x] 修复：报告生成时知识点被重复分析的问题（添加 isAnalyzed 标记字段，59 个测试全部通过）
+
+
+## Phase 1: MVP - 学习资料管理和 AI 课程生成
+
+### 数据库设计
+- [x] 创建 learning_materials 表（资料名称、描述、内容、学科、创建者、创建时间）
+- [x] 创建 generated_courses 表（资源 ID、学生 ID、课程大纲、生成时间、版本）
+- [x] 创建 course_chapters 表（课程 ID、章节序号、标题、内容、学习时长预估）
+- [x] 创建 student_course_progress 表（学生课程学习进度追踪）
+
+### 后端 API - 资料管理
+- [x] 实现 `material.create` - 上传学习资料（纯文本/Markdown）
+- [x] 实现 `material.list` - 获取所有学习资料列表
+- [x] 实现 `material.detail` - 获取资料详情（含关联课程）
+- [x] 实现 `material.update` - 编辑资料内容
+- [x] 实现 `material.delete` - 删除资料
+
+### 后端 API - 课程生成
+- [x] 实现 `course.generateOutline` - 基于资料生成课程大纲（LLM）
+- [x] 实现 `course.generateChapter` - 生成单个章节内容（LLM）
+- [x] 实现 `course.generateAllChapters` - 批量生成所有章节内容（LLM）
+- [x] 实现 `course.listPublished` - 获取学生可用的课程列表
+- [x] 实现 `course.detail` - 获取课程详情（大纲+章节+进度）
+- [x] 实现 `course.updateProgress` - 更新学生学习进度
+- [x] 实现 `course.myProgress` - 获取学生全部课程进度
+- [x] 实现 `course.publish/archive/deleteCourse` - 课程生命周期管理
+
+### AI 课程生成引擎
+- [x] 实现 courseGenerator.ts（generateCourseOutline + generateChapterContent）
+- [x] 使用 JSON Schema 结构化输出确保大纲格式一致
+
+### 前端 - 管理员界面
+- [x] 创建「资料与课程」标签页（资料列表、上传、编辑、删除）
+- [x] 创建资料编辑器（Markdown 编辑器）
+- [x] 创建课程生成预览界面（展示生成的大纲和章节）
+- [x] 添加资料管理菜单到管理员后台
+
+### 前端 - 学生界面
+- [x] 创建 Courses.tsx 课程学习页面（课程列表、课程详情）
+- [x] 创建课程阅读器（展示章节内容、进度追踪、Markdown 渲染）
+- [x] 添加「学习课程」入口到主导航 Navbar
+
+### 测试和优化
+- [x] 编写资料管理 API 的 vitest 测试（6 个测试）
+- [x] 编写课程生成 API 的 vitest 测试（14 个测试）
+- [x] 全部 79 个测试通过

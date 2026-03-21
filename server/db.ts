@@ -1,6 +1,6 @@
 import { eq, desc, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, parentShareTokens, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint, type InsertParentShareToken } from "../drizzle/schema";
+import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, parentShareTokens, learningMaterials, generatedCourses, courseChapters, studentCourseProgress, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint, type InsertParentShareToken, type InsertLearningMaterial, type InsertGeneratedCourse, type InsertCourseChapter, type InsertStudentCourseProgress } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -660,4 +660,162 @@ export async function getAllClassesAnalytics() {
   }
 
   return result;
+}
+
+
+// ==================== LEARNING MATERIALS QUERIES ====================
+
+export async function createLearningMaterial(data: InsertLearningMaterial) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(learningMaterials).values(data);
+  const id = result[0].insertId;
+  return { id, ...data };
+}
+
+export async function getLearningMaterialById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(learningMaterials).where(eq(learningMaterials.id, id));
+  return rows[0];
+}
+
+export async function listLearningMaterials() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(learningMaterials).orderBy(desc(learningMaterials.createdAt));
+}
+
+export async function listPublishedMaterials() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(learningMaterials)
+    .where(eq(learningMaterials.isPublished, true))
+    .orderBy(desc(learningMaterials.createdAt));
+}
+
+export async function updateLearningMaterial(id: number, data: Partial<InsertLearningMaterial>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(learningMaterials).set(data).where(eq(learningMaterials.id, id));
+}
+
+export async function deleteLearningMaterial(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // Also delete related courses and chapters
+  const courses = await db.select({ id: generatedCourses.id }).from(generatedCourses)
+    .where(eq(generatedCourses.materialId, id));
+  for (const course of courses) {
+    await db.delete(courseChapters).where(eq(courseChapters.courseId, course.id));
+    await db.delete(studentCourseProgress).where(eq(studentCourseProgress.courseId, course.id));
+  }
+  await db.delete(generatedCourses).where(eq(generatedCourses.materialId, id));
+  await db.delete(learningMaterials).where(eq(learningMaterials.id, id));
+}
+
+// ==================== GENERATED COURSES QUERIES ====================
+
+export async function createGeneratedCourse(data: InsertGeneratedCourse) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(generatedCourses).values(data);
+  const id = result[0].insertId;
+  return { id, ...data };
+}
+
+export async function getGeneratedCourseById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(generatedCourses).where(eq(generatedCourses.id, id));
+  return rows[0];
+}
+
+export async function listCoursesByMaterialId(materialId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(generatedCourses)
+    .where(eq(generatedCourses.materialId, materialId))
+    .orderBy(desc(generatedCourses.createdAt));
+}
+
+export async function listPublishedCourses() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(generatedCourses)
+    .where(eq(generatedCourses.status, "published"))
+    .orderBy(desc(generatedCourses.createdAt));
+}
+
+export async function updateGeneratedCourse(id: number, data: Partial<InsertGeneratedCourse>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(generatedCourses).set(data).where(eq(generatedCourses.id, id));
+}
+
+export async function deleteGeneratedCourse(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(courseChapters).where(eq(courseChapters.courseId, id));
+  await db.delete(studentCourseProgress).where(eq(studentCourseProgress.courseId, id));
+  await db.delete(generatedCourses).where(eq(generatedCourses.id, id));
+}
+
+// ==================== COURSE CHAPTERS QUERIES ====================
+
+export async function createCourseChapter(data: InsertCourseChapter) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(courseChapters).values(data);
+  const id = result[0].insertId;
+  return { id, ...data };
+}
+
+export async function getChaptersByCourseId(courseId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(courseChapters)
+    .where(eq(courseChapters.courseId, courseId))
+    .orderBy(courseChapters.chapterIndex);
+}
+
+export async function getCourseChapterById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(courseChapters).where(eq(courseChapters.id, id));
+  return rows[0];
+}
+
+export async function updateCourseChapter(id: number, data: Partial<InsertCourseChapter>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(courseChapters).set(data).where(eq(courseChapters.id, id));
+}
+
+// ==================== STUDENT COURSE PROGRESS QUERIES ====================
+
+export async function getOrCreateProgress(userId: number, courseId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const existing = await db.select().from(studentCourseProgress)
+    .where(and(
+      eq(studentCourseProgress.userId, userId),
+      eq(studentCourseProgress.courseId, courseId)
+    ));
+  if (existing[0]) return existing[0];
+  const result = await db.insert(studentCourseProgress).values({ userId, courseId });
+  return { id: result[0].insertId, userId, courseId, lastCompletedChapter: 0, timeSpentMinutes: 0, status: "not_started" as const, startedAt: null, completedAt: null, createdAt: new Date(), updatedAt: new Date() };
+}
+
+export async function updateCourseProgress(id: number, data: Partial<InsertStudentCourseProgress>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(studentCourseProgress).set(data).where(eq(studentCourseProgress.id, id));
+}
+
+export async function getStudentCourseProgressList(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(studentCourseProgress)
+    .where(eq(studentCourseProgress.userId, userId));
 }

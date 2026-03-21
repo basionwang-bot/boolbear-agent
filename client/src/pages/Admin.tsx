@@ -7,7 +7,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import {
   Shield, Users, BookOpen, Plus, Copy, ChevronDown, ChevronUp,
   Loader2, BarChart3, Trash2, FileText, TrendingUp, Brain,
-  Activity, ExternalLink, Eye, Award
+  Activity, ExternalLink, Eye, Award, FolderOpen, Sparkles,
+  Play, Check, Clock, GraduationCap, Pencil, Archive
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -46,7 +47,7 @@ const SUBJECT_COLORS: Record<string, string> = {
 
 const PIE_COLORS = ["#E74C3C", "#3498DB", "#2ECC71", "#9B59B6", "#F39C12", "#1ABC9C", "#E67E22", "#16A085", "#8E44AD", "#2C3E50"];
 
-type AdminTab = "manage" | "analytics";
+type AdminTab = "manage" | "analytics" | "materials";
 
 export default function Admin() {
   const [, navigate] = useLocation();
@@ -60,6 +61,15 @@ export default function Admin() {
   const [selectedAnalyticsClass, setSelectedAnalyticsClass] = useState<number | null>(null);
   const [reportGeneratingUserId, setReportGeneratingUserId] = useState<number | null>(null);
   const [generatedReportUrl, setGeneratedReportUrl] = useState<string | null>(null);
+
+  // Material management state
+  const [showMaterialForm, setShowMaterialForm] = useState(false);
+  const [editingMaterial, setEditingMaterial] = useState<any>(null);
+  const [materialForm, setMaterialForm] = useState({ title: "", description: "", content: "", subject: "", gradeLevel: "" });
+  const [selectedMaterialId, setSelectedMaterialId] = useState<number | null>(null);
+  const [generatingCourse, setGeneratingCourse] = useState(false);
+  const [generatingChapters, setGeneratingChapters] = useState(false);
+  const [viewingCourseId, setViewingCourseId] = useState<number | null>(null);
 
   // Redirect non-admin users
   useEffect(() => {
@@ -75,6 +85,19 @@ export default function Admin() {
   const statsQuery = trpc.admin.stats.useQuery(undefined, { enabled: isAdmin });
   const classesQuery = trpc.class.list.useQuery(undefined, { enabled: isAdmin });
   const studentsQuery = trpc.admin.students.useQuery(undefined, { enabled: isAdmin });
+
+  // Material queries
+  const materialsQuery = trpc.material.list.useQuery(undefined, {
+    enabled: isAdmin && activeTab === "materials",
+  });
+  const materialDetailQuery = trpc.material.detail.useQuery(
+    { id: selectedMaterialId! },
+    { enabled: isAdmin && !!selectedMaterialId }
+  );
+  const courseDetailQuery = trpc.course.adminDetail.useQuery(
+    { courseId: viewingCourseId! },
+    { enabled: isAdmin && !!viewingCourseId }
+  );
 
   // Analytics queries
   const classesAnalyticsQuery = trpc.admin.classesAnalytics.useQuery(undefined, {
@@ -112,6 +135,123 @@ export default function Admin() {
     },
     onError: (err) => toast.error(err.message || "删除失败"),
   });
+
+  // Material mutations
+  const createMaterialMutation = trpc.material.create.useMutation({
+    onSuccess: () => {
+      toast.success("资料创建成功");
+      setShowMaterialForm(false);
+      setMaterialForm({ title: "", description: "", content: "", subject: "", gradeLevel: "" });
+      materialsQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message || "创建失败"),
+  });
+
+  const updateMaterialMutation = trpc.material.update.useMutation({
+    onSuccess: () => {
+      toast.success("资料更新成功");
+      setShowMaterialForm(false);
+      setEditingMaterial(null);
+      setMaterialForm({ title: "", description: "", content: "", subject: "", gradeLevel: "" });
+      materialsQuery.refetch();
+      if (selectedMaterialId) materialDetailQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message || "更新失败"),
+  });
+
+  const deleteMaterialMutation = trpc.material.delete.useMutation({
+    onSuccess: () => {
+      toast.success("资料已删除");
+      setSelectedMaterialId(null);
+      materialsQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message || "删除失败"),
+  });
+
+  const generateOutlineMutation = trpc.course.generateOutline.useMutation({
+    onSuccess: (data) => {
+      toast.success("课程大纲已生成");
+      setGeneratingCourse(false);
+      if (selectedMaterialId) materialDetailQuery.refetch();
+      setViewingCourseId(data.courseId);
+    },
+    onError: (err) => {
+      toast.error(err.message || "生成失败");
+      setGeneratingCourse(false);
+    },
+  });
+
+  const generateAllChaptersMutation = trpc.course.generateAllChapters.useMutation({
+    onSuccess: (data) => {
+      toast.success(`已生成 ${data.generated} 个章节内容`);
+      setGeneratingChapters(false);
+      if (viewingCourseId) courseDetailQuery.refetch();
+    },
+    onError: (err) => {
+      toast.error(err.message || "生成失败");
+      setGeneratingChapters(false);
+    },
+  });
+
+  const publishCourseMutation = trpc.course.publish.useMutation({
+    onSuccess: () => {
+      toast.success("课程已发布");
+      if (viewingCourseId) courseDetailQuery.refetch();
+      if (selectedMaterialId) materialDetailQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message || "发布失败"),
+  });
+
+  const archiveCourseMutation = trpc.course.archive.useMutation({
+    onSuccess: () => {
+      toast.success("课程已下架");
+      if (viewingCourseId) courseDetailQuery.refetch();
+      if (selectedMaterialId) materialDetailQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message || "下架失败"),
+  });
+
+  const deleteCourseMutation = trpc.course.deleteCourse.useMutation({
+    onSuccess: () => {
+      toast.success("课程已删除");
+      setViewingCourseId(null);
+      if (selectedMaterialId) materialDetailQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message || "删除失败"),
+  });
+
+  const handleSaveMaterial = () => {
+    if (!materialForm.title.trim()) { toast.error("请输入资料标题"); return; }
+    if (!materialForm.content.trim()) { toast.error("请输入资料内容"); return; }
+    if (!materialForm.subject.trim()) { toast.error("请选择学科"); return; }
+    if (editingMaterial) {
+      updateMaterialMutation.mutate({ id: editingMaterial.id, ...materialForm });
+    } else {
+      createMaterialMutation.mutate(materialForm);
+    }
+  };
+
+  const handleEditMaterial = (m: any) => {
+    setEditingMaterial(m);
+    setMaterialForm({
+      title: m.title,
+      description: m.description || "",
+      content: m.content,
+      subject: m.subject,
+      gradeLevel: m.gradeLevel || "",
+    });
+    setShowMaterialForm(true);
+  };
+
+  const handleGenerateCourse = (materialId: number) => {
+    setGeneratingCourse(true);
+    generateOutlineMutation.mutate({ materialId });
+  };
+
+  const handleGenerateAllChapters = (courseId: number) => {
+    setGeneratingChapters(true);
+    generateAllChaptersMutation.mutate({ courseId });
+  };
 
   const generateReportMutation = trpc.admin.generateStudentReport.useMutation({
     onSuccess: (data) => {
@@ -255,6 +395,17 @@ export default function Admin() {
             style={activeTab === "analytics" ? { background: "oklch(0.50 0.10 155)" } : {}}
           >
             <BarChart3 className="w-4 h-4" /> 数据分析
+          </button>
+          <button
+            onClick={() => setActiveTab("materials")}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              activeTab === "materials"
+                ? "text-white shadow-lg"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+            style={activeTab === "materials" ? { background: "oklch(0.55 0.15 250)" } : {}}
+          >
+            <FolderOpen className="w-4 h-4" /> 资料与课程
           </button>
         </div>
 
@@ -727,6 +878,311 @@ export default function Admin() {
                 <p className="text-muted-foreground text-lg">还没有班级数据</p>
                 <p className="text-xs text-muted-foreground mt-2">创建班级并邀请学生后，这里将显示学习数据分析</p>
               </div>
+            )}
+          </motion.div>
+        )}
+        {/* ===================== MATERIALS TAB ===================== */}
+        {activeTab === "materials" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} key="materials">
+            {/* Material Form Modal */}
+            {showMaterialForm && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+                <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="bg-background rounded-2xl p-6 max-w-2xl w-full shadow-lg max-h-[90vh] overflow-y-auto">
+                  <h3 className="text-lg font-bold mb-4 flex items-center gap-2" style={{ color: "oklch(0.30 0.06 55)" }}>
+                    <BookOpen className="w-5 h-5" style={{ color: "oklch(0.55 0.15 250)" }} />
+                    {editingMaterial ? "编辑资料" : "新建学习资料"}
+                  </h3>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="text-sm font-bold mb-1 block" style={{ color: "oklch(0.30 0.06 55)" }}>资料标题</label>
+                      <Input value={materialForm.title} onChange={(e) => setMaterialForm(f => ({ ...f, title: e.target.value }))} placeholder="例如：初中数学 - 一元二次方程" />
+                    </div>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="text-sm font-bold mb-1 block" style={{ color: "oklch(0.30 0.06 55)" }}>学科</label>
+                        <select
+                          value={materialForm.subject}
+                          onChange={(e) => setMaterialForm(f => ({ ...f, subject: e.target.value }))}
+                          className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
+                        >
+                          <option value="">选择学科</option>
+                          {Object.keys(SUBJECT_COLORS).map(s => <option key={s} value={s}>{s}</option>)}
+                          <option value="其他">其他</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="text-sm font-bold mb-1 block" style={{ color: "oklch(0.30 0.06 55)" }}>年级/适用对象</label>
+                        <Input value={materialForm.gradeLevel} onChange={(e) => setMaterialForm(f => ({ ...f, gradeLevel: e.target.value }))} placeholder="例如：初三" />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm font-bold mb-1 block" style={{ color: "oklch(0.30 0.06 55)" }}>简要描述</label>
+                      <Input value={materialForm.description} onChange={(e) => setMaterialForm(f => ({ ...f, description: e.target.value }))} placeholder="简要描述资料内容" />
+                    </div>
+                    <div>
+                      <label className="text-sm font-bold mb-1 block" style={{ color: "oklch(0.30 0.06 55)" }}>资料内容（支持 Markdown）</label>
+                      <textarea
+                        value={materialForm.content}
+                        onChange={(e) => setMaterialForm(f => ({ ...f, content: e.target.value }))}
+                        placeholder="在此输入或粘贴学习资料内容...支持 Markdown 格式"
+                        className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm min-h-[300px] font-mono resize-y"
+                      />
+                    </div>
+                    <div className="flex gap-3">
+                      <Button onClick={() => { setShowMaterialForm(false); setEditingMaterial(null); setMaterialForm({ title: "", description: "", content: "", subject: "", gradeLevel: "" }); }} variant="outline" className="flex-1">取消</Button>
+                      <Button
+                        onClick={handleSaveMaterial}
+                        disabled={createMaterialMutation.isPending || updateMaterialMutation.isPending}
+                        className="flex-1 text-white font-bold"
+                        style={{ background: "oklch(0.55 0.15 250)" }}
+                      >
+                        {(createMaterialMutation.isPending || updateMaterialMutation.isPending) ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4 mr-1" />}
+                        {editingMaterial ? "保存修改" : "创建资料"}
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+
+            {/* Course Detail View */}
+            {viewingCourseId && courseDetailQuery.data ? (
+              <div>
+                <button
+                  onClick={() => setViewingCourseId(null)}
+                  className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground mb-4 transition"
+                >
+                  <ChevronUp className="w-4 h-4 rotate-[-90deg]" /> 返回资料列表
+                </button>
+
+                <div className="bear-card p-6 mb-6">
+                  <div className="flex items-center justify-between mb-4">
+                    <div>
+                      <h3 className="text-xl font-bold" style={{ color: "oklch(0.30 0.06 55)" }}>{courseDetailQuery.data.title}</h3>
+                      <p className="text-sm text-muted-foreground mt-1">
+                        来源资料：{courseDetailQuery.data.materialTitle} · {courseDetailQuery.data.subject} · {courseDetailQuery.data.chapterCount} 章节 · 约 {courseDetailQuery.data.totalMinutes} 分钟
+                      </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`px-3 py-1 rounded-full text-xs font-bold ${
+                        courseDetailQuery.data.status === "published" ? "bg-green-100 text-green-700" :
+                        courseDetailQuery.data.status === "archived" ? "bg-gray-100 text-gray-500" :
+                        "bg-yellow-100 text-yellow-700"
+                      }`}>
+                        {courseDetailQuery.data.status === "published" ? "已发布" : courseDetailQuery.data.status === "archived" ? "已下架" : "草稿"}
+                      </span>
+                    </div>
+                  </div>
+                  {courseDetailQuery.data.description && (
+                    <p className="text-sm text-muted-foreground mb-4">{courseDetailQuery.data.description}</p>
+                  )}
+
+                  {/* Action Buttons */}
+                  <div className="flex flex-wrap gap-2 mb-6">
+                    {courseDetailQuery.data.chapters.some((ch: any) => !ch.isGenerated) && (
+                      <Button
+                        onClick={() => handleGenerateAllChapters(viewingCourseId)}
+                        disabled={generatingChapters}
+                        className="text-white font-bold text-sm"
+                        style={{ background: "oklch(0.55 0.15 250)" }}
+                      >
+                        {generatingChapters ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                        生成所有章节内容
+                      </Button>
+                    )}
+                    {courseDetailQuery.data.status === "draft" && (
+                      <Button
+                        onClick={() => publishCourseMutation.mutate({ courseId: viewingCourseId })}
+                        disabled={publishCourseMutation.isPending}
+                        className="text-white font-bold text-sm bg-green-600 hover:bg-green-700"
+                      >
+                        <Play className="w-4 h-4 mr-1" /> 发布课程
+                      </Button>
+                    )}
+                    {courseDetailQuery.data.status === "published" && (
+                      <Button
+                        onClick={() => archiveCourseMutation.mutate({ courseId: viewingCourseId })}
+                        variant="outline"
+                        className="text-sm"
+                      >
+                        <Archive className="w-4 h-4 mr-1" /> 下架
+                      </Button>
+                    )}
+                    <Button
+                      onClick={() => { if (confirm("确定删除这个课程吗？")) deleteCourseMutation.mutate({ courseId: viewingCourseId }); }}
+                      variant="outline"
+                      className="text-sm text-red-500 hover:text-red-600"
+                    >
+                      <Trash2 className="w-4 h-4 mr-1" /> 删除课程
+                    </Button>
+                  </div>
+
+                  {/* Chapters List */}
+                  <div className="space-y-3">
+                    {courseDetailQuery.data.chapters.map((ch: any) => (
+                      <div key={ch.id} className="border border-border rounded-xl p-4">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-3">
+                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center text-sm font-bold ${
+                              ch.isGenerated ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"
+                            }`}>
+                              {ch.isGenerated ? <Check className="w-4 h-4" /> : ch.chapterIndex}
+                            </div>
+                            <div>
+                              <h4 className="font-bold text-sm" style={{ color: "oklch(0.30 0.06 55)" }}>{ch.title}</h4>
+                              <div className="flex items-center gap-3 mt-1">
+                                <span className="text-xs text-muted-foreground flex items-center gap-1">
+                                  <Clock className="w-3 h-3" /> {ch.estimatedMinutes}分钟
+                                </span>
+                                {ch.keyPoints && (ch.keyPoints as string[]).length > 0 && (
+                                  <span className="text-xs text-muted-foreground">
+                                    {(ch.keyPoints as string[]).slice(0, 3).join("、")}
+                                  </span>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          <span className={`text-xs font-bold px-2 py-1 rounded-lg ${
+                            ch.isGenerated ? "bg-green-50 text-green-600" : "bg-muted text-muted-foreground"
+                          }`}>
+                            {ch.isGenerated ? "已生成" : "待生成"}
+                          </span>
+                        </div>
+                        {ch.objectives && (ch.objectives as string[]).length > 0 && (
+                          <div className="mt-2 pl-11">
+                            <p className="text-xs text-muted-foreground">学习目标：{(ch.objectives as string[]).join("、")}</p>
+                          </div>
+                        )}
+                        {ch.isGenerated && ch.content && (
+                          <details className="mt-3 pl-11">
+                            <summary className="text-xs font-bold cursor-pointer" style={{ color: "oklch(0.55 0.15 250)" }}>查看内容预览</summary>
+                            <div className="mt-2 p-3 bg-muted rounded-lg text-xs leading-relaxed whitespace-pre-wrap max-h-[400px] overflow-y-auto">
+                              {ch.content}
+                            </div>
+                          </details>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <>
+                {/* Header + Add Button */}
+                <div className="flex items-center justify-between mb-6">
+                  <div>
+                    <h2 className="text-lg font-bold" style={{ color: "oklch(0.30 0.06 55)" }}>学习资料库</h2>
+                    <p className="text-xs text-muted-foreground">上传学习资料，AI 将自动生成结构化课程</p>
+                  </div>
+                  <Button
+                    onClick={() => { setEditingMaterial(null); setMaterialForm({ title: "", description: "", content: "", subject: "", gradeLevel: "" }); setShowMaterialForm(true); }}
+                    className="text-white font-bold"
+                    style={{ background: "oklch(0.55 0.15 250)" }}
+                  >
+                    <Plus className="w-4 h-4 mr-1" /> 新建资料
+                  </Button>
+                </div>
+
+                {/* Materials List */}
+                {materialsQuery.isLoading ? (
+                  <div className="flex justify-center py-16">
+                    <Loader2 className="w-8 h-8 animate-spin" style={{ color: "oklch(0.55 0.15 250)" }} />
+                  </div>
+                ) : materialsQuery.data && materialsQuery.data.length > 0 ? (
+                  <div className="space-y-4">
+                    {materialsQuery.data.map((m: any) => (
+                      <div key={m.id} className="bear-card p-5">
+                        <div className="flex items-start justify-between">
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2 mb-1">
+                              <h3 className="font-bold" style={{ color: "oklch(0.30 0.06 55)" }}>{m.title}</h3>
+                              <span className="px-2 py-0.5 rounded-full text-xs font-bold" style={{ background: (SUBJECT_COLORS[m.subject] || "#95A5A6") + "20", color: SUBJECT_COLORS[m.subject] || "#95A5A6" }}>
+                                {m.subject}
+                              </span>
+                              {m.gradeLevel && <span className="text-xs text-muted-foreground">{m.gradeLevel}</span>}
+                              <span className={`px-2 py-0.5 rounded-full text-xs font-bold ${m.isPublished ? "bg-green-100 text-green-700" : "bg-muted text-muted-foreground"}`}>
+                                {m.isPublished ? "已发布" : "未发布"}
+                              </span>
+                            </div>
+                            {m.description && <p className="text-sm text-muted-foreground mb-2">{m.description}</p>}
+                            <p className="text-xs text-muted-foreground">
+                              创建于 {new Date(m.createdAt).toLocaleDateString("zh-CN")} · {m.content.length} 字
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-2 ml-4">
+                            <button onClick={() => handleEditMaterial(m)} className="p-2 rounded-lg hover:bg-muted transition" title="编辑">
+                              <Pencil className="w-4 h-4 text-muted-foreground" />
+                            </button>
+                            <button
+                              onClick={() => { if (confirm("确定删除这份资料吗？相关课程也会被删除。")) deleteMaterialMutation.mutate({ id: m.id }); }}
+                              className="p-2 rounded-lg hover:bg-red-50 transition"
+                              title="删除"
+                            >
+                              <Trash2 className="w-4 h-4 text-red-400" />
+                            </button>
+                          </div>
+                        </div>
+
+                        {/* Generate Course Button */}
+                        <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                          <Button
+                            onClick={() => handleGenerateCourse(m.id)}
+                            disabled={generatingCourse}
+                            className="text-white font-bold text-sm"
+                            style={{ background: "oklch(0.55 0.15 250)" }}
+                          >
+                            {generatingCourse ? <Loader2 className="w-4 h-4 animate-spin mr-1" /> : <Sparkles className="w-4 h-4 mr-1" />}
+                            AI 生成课程
+                          </Button>
+                          <Button
+                            onClick={() => { setSelectedMaterialId(m.id); }}
+                            variant="outline"
+                            className="text-sm"
+                          >
+                            <Eye className="w-4 h-4 mr-1" /> 查看已生成课程
+                          </Button>
+                        </div>
+
+                        {/* Courses generated from this material */}
+                        {selectedMaterialId === m.id && materialDetailQuery.data?.courses && materialDetailQuery.data.courses.length > 0 && (
+                          <div className="mt-4 space-y-2">
+                            <h4 className="text-sm font-bold" style={{ color: "oklch(0.30 0.06 55)" }}>已生成的课程：</h4>
+                            {materialDetailQuery.data.courses.map((c: any) => (
+                              <div key={c.id} className="flex items-center justify-between p-3 bg-muted rounded-xl">
+                                <div>
+                                  <span className="text-sm font-bold" style={{ color: "oklch(0.30 0.06 55)" }}>{c.title}</span>
+                                  <span className="text-xs text-muted-foreground ml-2">{c.chapterCount}章节 · 约{c.totalMinutes}分钟</span>
+                                  <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-bold ${
+                                    c.status === "published" ? "bg-green-100 text-green-700" :
+                                    c.status === "archived" ? "bg-gray-100 text-gray-500" :
+                                    "bg-yellow-100 text-yellow-700"
+                                  }`}>
+                                    {c.status === "published" ? "已发布" : c.status === "archived" ? "已下架" : "草稿"}
+                                  </span>
+                                </div>
+                                <Button onClick={() => setViewingCourseId(c.id)} variant="outline" size="sm">
+                                  <Eye className="w-3 h-3 mr-1" /> 查看
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                        {selectedMaterialId === m.id && materialDetailQuery.data?.courses && materialDetailQuery.data.courses.length === 0 && (
+                          <div className="mt-4 p-4 bg-muted rounded-xl text-center">
+                            <p className="text-sm text-muted-foreground">还没有生成课程，点击上方「AI 生成课程」按钮开始</p>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="bear-card p-16 text-center">
+                    <FolderOpen className="w-16 h-16 mx-auto mb-4 text-muted-foreground/30" />
+                    <p className="text-muted-foreground text-lg">还没有学习资料</p>
+                    <p className="text-xs text-muted-foreground mt-2">点击「新建资料」按钮开始上传学习内容</p>
+                  </div>
+                )}
+              </>
             )}
           </motion.div>
         )}

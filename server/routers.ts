@@ -10,6 +10,7 @@ import * as db from "./db";
 import { sdk } from "./_core/sdk";
 import { ONE_YEAR_MS } from "@shared/const";
 import { extractAndSaveKnowledgePoints } from "./knowledgeExtractor";
+import { generateCourseOutline, generateChapterContent } from "./courseGenerator";
 
 // ==================== AUTH ROUTER ====================
 
@@ -537,7 +538,296 @@ const parentRouter = router({
     }),
 });
 
-// ==================== APP ROUTER ==
+// ==================== MATERIAL ROUTER (Admin) ====================
+
+const materialRouter = router({
+  /** Create a new learning material */
+  create: adminProcedure
+    .input(z.object({
+      title: z.string().min(1).max(256),
+      description: z.string().max(2000).optional(),
+      content: z.string().min(1),
+      subject: z.string().min(1).max(64),
+      gradeLevel: z.string().max(64).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      return db.createLearningMaterial({
+        title: input.title,
+        description: input.description || null,
+        content: input.content,
+        subject: input.subject,
+        gradeLevel: input.gradeLevel || null,
+        createdBy: ctx.user.id,
+        isPublished: false,
+      });
+    }),
+
+  /** List all materials (admin sees all) */
+  list: adminProcedure.query(async () => {
+    return db.listLearningMaterials();
+  }),
+
+  /** Get material detail */
+  detail: adminProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const material = await db.getLearningMaterialById(input.id);
+      if (!material) throw new TRPCError({ code: "NOT_FOUND", message: "资料不存在" });
+      // Also get courses generated from this material
+      const courses = await db.listCoursesByMaterialId(input.id);
+      return { ...material, courses };
+    }),
+
+  /** Update material */
+  update: adminProcedure
+    .input(z.object({
+      id: z.number().int().positive(),
+      title: z.string().min(1).max(256).optional(),
+      description: z.string().max(2000).optional(),
+      content: z.string().min(1).optional(),
+      subject: z.string().min(1).max(64).optional(),
+      gradeLevel: z.string().max(64).optional(),
+      isPublished: z.boolean().optional(),
+    }))
+    .mutation(async ({ input }) => {
+      const { id, ...data } = input;
+      const material = await db.getLearningMaterialById(id);
+      if (!material) throw new TRPCError({ code: "NOT_FOUND", message: "资料不存在" });
+      await db.updateLearningMaterial(id, data);
+      return { success: true };
+    }),
+
+  /** Delete material and all related courses */
+  delete: adminProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const material = await db.getLearningMaterialById(input.id);
+      if (!material) throw new TRPCError({ code: "NOT_FOUND", message: "资料不存在" });
+      await db.deleteLearningMaterial(input.id);
+      return { success: true };
+    }),
+});
+
+// ==================== COURSE ROUTER ====================
+
+const courseRouter = router({
+  /** Generate course outline from a learning material (admin) */
+  generateOutline: adminProcedure
+    .input(z.object({ materialId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const material = await db.getLearningMaterialById(input.materialId);
+      if (!material) throw new TRPCError({ code: "NOT_FOUND", message: "资料不存在" });
+
+      // Generate outline using LLM
+      const outline = await generateCourseOutline(
+        material.title,
+        material.content,
+        material.subject,
+        material.gradeLevel
+      );
+
+      // Save course to database
+      const totalMinutes = outline.chapters.reduce((sum, ch) => sum + ch.estimatedMinutes, 0);
+      const course = await db.createGeneratedCourse({
+        materialId: input.materialId,
+        title: outline.title,
+        description: outline.description,
+        subject: material.subject,
+        chapterCount: outline.chapters.length,
+        totalMinutes,
+        status: "draft",
+        createdBy: ctx.user.id,
+      });
+
+      // Save chapters (without content yet)
+      for (const ch of outline.chapters) {
+        await db.createCourseChapter({
+          courseId: course.id,
+          chapterIndex: ch.index,
+          title: ch.title,
+          objectives: ch.objectives,
+          keyPoints: ch.keyPoints,
+          estimatedMinutes: ch.estimatedMinutes,
+          isGenerated: false,
+        });
+      }
+
+      return { courseId: course.id, outline };
+    }),
+
+  /** Generate content for a specific chapter (admin) */
+  generateChapter: adminProcedure
+    .input(z.object({
+      courseId: z.number().int().positive(),
+      chapterId: z.number().int().positive(),
+    }))
+    .mutation(async ({ input }) => {
+      const course = await db.getGeneratedCourseById(input.courseId);
+      if (!course) throw new TRPCError({ code: "NOT_FOUND", message: "课程不存在" });
+
+      const chapter = await db.getCourseChapterById(input.chapterId);
+      if (!chapter || chapter.courseId !== input.courseId) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "章节不存在" });
+      }
+
+      const material = await db.getLearningMaterialById(course.materialId);
+      if (!material) throw new TRPCError({ code: "NOT_FOUND", message: "源资料不存在" });
+
+      // Generate chapter content using LLM
+      const content = await generateChapterContent(
+        material.content,
+        chapter.title,
+        (chapter.objectives as string[]) || [],
+        (chapter.keyPoints as string[]) || [],
+        course.subject,
+        material.gradeLevel
+      );
+
+      // Save content
+      await db.updateCourseChapter(chapter.id, { content, isGenerated: true });
+
+      return { chapterId: chapter.id, content };
+    }),
+
+  /** Generate content for ALL chapters of a course (admin) */
+  generateAllChapters: adminProcedure
+    .input(z.object({ courseId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const course = await db.getGeneratedCourseById(input.courseId);
+      if (!course) throw new TRPCError({ code: "NOT_FOUND", message: "课程不存在" });
+
+      const material = await db.getLearningMaterialById(course.materialId);
+      if (!material) throw new TRPCError({ code: "NOT_FOUND", message: "源资料不存在" });
+
+      const chapters = await db.getChaptersByCourseId(input.courseId);
+      let generated = 0;
+
+      for (const chapter of chapters) {
+        if (chapter.isGenerated) continue; // Skip already generated
+        try {
+          const content = await generateChapterContent(
+            material.content,
+            chapter.title,
+            (chapter.objectives as string[]) || [],
+            (chapter.keyPoints as string[]) || [],
+            course.subject,
+            material.gradeLevel
+          );
+          await db.updateCourseChapter(chapter.id, { content, isGenerated: true });
+          generated++;
+        } catch (err) {
+          console.error(`[Course] Failed to generate chapter ${chapter.id}:`, err);
+        }
+      }
+
+      return { generated, total: chapters.length };
+    }),
+
+  /** Publish a course (admin) */
+  publish: adminProcedure
+    .input(z.object({ courseId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      const course = await db.getGeneratedCourseById(input.courseId);
+      if (!course) throw new TRPCError({ code: "NOT_FOUND", message: "课程不存在" });
+      await db.updateGeneratedCourse(input.courseId, { status: "published" });
+      return { success: true };
+    }),
+
+  /** Unpublish / archive a course (admin) */
+  archive: adminProcedure
+    .input(z.object({ courseId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      await db.updateGeneratedCourse(input.courseId, { status: "archived" });
+      return { success: true };
+    }),
+
+  /** Delete a course (admin) */
+  deleteCourse: adminProcedure
+    .input(z.object({ courseId: z.number().int().positive() }))
+    .mutation(async ({ input }) => {
+      await db.deleteGeneratedCourse(input.courseId);
+      return { success: true };
+    }),
+
+  /** Get course detail with chapters (admin) */
+  adminDetail: adminProcedure
+    .input(z.object({ courseId: z.number().int().positive() }))
+    .query(async ({ input }) => {
+      const course = await db.getGeneratedCourseById(input.courseId);
+      if (!course) throw new TRPCError({ code: "NOT_FOUND", message: "课程不存在" });
+      const chapters = await db.getChaptersByCourseId(input.courseId);
+      const material = await db.getLearningMaterialById(course.materialId);
+      return { ...course, chapters, materialTitle: material?.title || "未知资料" };
+    }),
+
+  // ---- Student-facing endpoints ----
+
+  /** List published courses (student) */
+  listPublished: protectedProcedure.query(async () => {
+    return db.listPublishedCourses();
+  }),
+
+  /** Get course detail for student (only published) */
+  detail: protectedProcedure
+    .input(z.object({ courseId: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const course = await db.getGeneratedCourseById(input.courseId);
+      if (!course || course.status !== "published") {
+        throw new TRPCError({ code: "NOT_FOUND", message: "课程不存在或未发布" });
+      }
+      const chapters = await db.getChaptersByCourseId(input.courseId);
+      const progress = await db.getOrCreateProgress(ctx.user.id, input.courseId);
+      return {
+        ...course,
+        chapters: chapters.map(ch => ({
+          id: ch.id,
+          chapterIndex: ch.chapterIndex,
+          title: ch.title,
+          objectives: ch.objectives,
+          keyPoints: ch.keyPoints,
+          estimatedMinutes: ch.estimatedMinutes,
+          isGenerated: ch.isGenerated,
+          // Only include content if chapter is generated
+          content: ch.isGenerated ? ch.content : null,
+        })),
+        progress,
+      };
+    }),
+
+  /** Update student's course progress */
+  updateProgress: protectedProcedure
+    .input(z.object({
+      courseId: z.number().int().positive(),
+      lastCompletedChapter: z.number().int().min(0),
+      timeSpentMinutes: z.number().int().min(0).optional(),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      const course = await db.getGeneratedCourseById(input.courseId);
+      if (!course || course.status !== "published") {
+        throw new TRPCError({ code: "NOT_FOUND", message: "课程不存在" });
+      }
+
+      const progress = await db.getOrCreateProgress(ctx.user.id, input.courseId);
+      const isCompleted = input.lastCompletedChapter >= course.chapterCount;
+
+      await db.updateCourseProgress(progress.id, {
+        lastCompletedChapter: input.lastCompletedChapter,
+        timeSpentMinutes: input.timeSpentMinutes ?? progress.timeSpentMinutes,
+        status: isCompleted ? "completed" : "in_progress",
+        startedAt: progress.startedAt || new Date(),
+        completedAt: isCompleted ? new Date() : null,
+      });
+
+      return { success: true, isCompleted };
+    }),
+
+  /** Get student's progress for all courses */
+  myProgress: protectedProcedure.query(async ({ ctx }) => {
+    return db.getStudentCourseProgressList(ctx.user.id);
+  }),
+});
+
+// ==================== APP ROUTER ====================
 
 export const appRouter = router({
   system: systemRouter,
@@ -549,6 +839,8 @@ export const appRouter = router({
   knowledge: knowledgeRouter,
   parent: parentRouter,
   learningTime: learningTimeRouter,
+  material: materialRouter,
+  course: courseRouter,
 });
 
 export type AppRouter = typeof appRouter;
