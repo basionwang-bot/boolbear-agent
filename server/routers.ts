@@ -324,6 +324,7 @@ const adminRouter = router({
         className: cls?.name || "未分班",
         createdAt: s.createdAt,
         lastSignedIn: s.lastSignedIn,
+        isChatDisabled: s.isChatDisabled,
         bear: bear ? {
           bearName: bear.bearName,
           bearType: bear.bearType,
@@ -336,6 +337,20 @@ const adminRouter = router({
     }));
     return result;
   }),
+
+  /** Toggle a student's AI chat access (disable/enable) */
+  toggleChatDisabled: adminProcedure
+    .input(z.object({
+      userId: z.number().int().positive(),
+      disabled: z.boolean(),
+    }))
+    .mutation(async ({ input }) => {
+      const user = await db.getUserById(input.userId);
+      if (!user) throw new TRPCError({ code: "NOT_FOUND", message: "用户不存在" });
+      if (user.role === "admin") throw new TRPCError({ code: "FORBIDDEN", message: "不能停用管理员账号" });
+      await db.updateUserChatDisabled(input.userId, input.disabled);
+      return { success: true, isChatDisabled: input.disabled };
+    }),
 
   /** Delete a user and all their related data */
   deleteUser: adminProcedure

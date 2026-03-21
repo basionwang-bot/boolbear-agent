@@ -118,6 +118,12 @@ export async function getUserById(id: number) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+export async function updateUserChatDisabled(userId: number, disabled: boolean) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(users).set({ isChatDisabled: disabled }).where(eq(users.id, userId));
+}
+
 export async function getAllStudents() {
   const db = await getDb();
   if (!db) return [];

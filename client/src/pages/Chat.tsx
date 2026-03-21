@@ -459,33 +459,40 @@ export default function Chat() {
 
           {/* Input */}
           <div className="px-4 py-3 border-t border-[oklch(0.52_0.09_55/0.1)] bg-white/90 backdrop-blur-sm relative z-10">
-            <div className="flex items-center gap-3 max-w-3xl mx-auto">
-              <div className="flex-1">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
-                  placeholder={`问${bear.bearName}任何问题...`}
-                  className="w-full px-4 py-3 rounded-2xl bg-[oklch(0.97_0.01_85)] border border-[oklch(0.52_0.09_55/0.15)] focus:border-[oklch(0.52_0.09_55/0.5)] focus:outline-none text-sm transition-all"
-                  disabled={isStreaming}
-                />
+            {user?.isChatDisabled ? (
+              <div className="flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-orange-50 border border-orange-200 max-w-3xl mx-auto">
+                <Shield className="w-5 h-5 text-orange-500 shrink-0" />
+                <span className="text-sm text-orange-700">你的 AI 聊天功能已被管理员停用，请联系老师了解详情</span>
               </div>
-              <motion.button
-                whileHover={{ scale: 1.1 }}
-                whileTap={{ scale: 0.9 }}
-                onClick={handleSend}
-                disabled={!input.trim() || isStreaming}
-                className="w-11 h-11 rounded-full flex items-center justify-center text-white disabled:opacity-40 transition shadow-md"
-                style={{ background: "oklch(0.52 0.09 55)" }}
-              >
-                {isStreaming ? (
-                  <Loader2 className="w-5 h-5 animate-spin" />
-                ) : (
-                  <Send className="w-5 h-5" />
-                )}
-              </motion.button>
-            </div>
+            ) : (
+              <div className="flex items-center gap-3 max-w-3xl mx-auto">
+                <div className="flex-1">
+                  <input
+                    type="text"
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyDown={(e) => e.key === "Enter" && !e.shiftKey && handleSend()}
+                    placeholder={`问${bear.bearName}任何问题...`}
+                    className="w-full px-4 py-3 rounded-2xl bg-[oklch(0.97_0.01_85)] border border-[oklch(0.52_0.09_55/0.15)] focus:border-[oklch(0.52_0.09_55/0.5)] focus:outline-none text-sm transition-all"
+                    disabled={isStreaming}
+                  />
+                </div>
+                <motion.button
+                  whileHover={{ scale: 1.1 }}
+                  whileTap={{ scale: 0.9 }}
+                  onClick={handleSend}
+                  disabled={!input.trim() || isStreaming}
+                  className="w-11 h-11 rounded-full flex items-center justify-center text-white disabled:opacity-40 transition shadow-md"
+                  style={{ background: "oklch(0.52 0.09 55)" }}
+                >
+                  {isStreaming ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Send className="w-5 h-5" />
+                  )}
+                </motion.button>
+              </div>
+            )}
           </div>
         </div>
       </div>

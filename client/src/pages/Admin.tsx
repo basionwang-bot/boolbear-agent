@@ -8,7 +8,7 @@ import {
   Shield, Users, BookOpen, Plus, Copy, ChevronDown, ChevronUp,
   Loader2, BarChart3, Trash2, FileText, TrendingUp, Brain,
   Activity, ExternalLink, Eye, Award, FolderOpen, Sparkles,
-  Play, Check, Clock, GraduationCap, Pencil, Archive
+  Play, Check, Clock, GraduationCap, Pencil, Archive, Ban, MessageCircle
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
@@ -134,6 +134,15 @@ export default function Admin() {
       statsQuery.refetch();
     },
     onError: (err) => toast.error(err.message || "删除失败"),
+  });
+
+  const toggleChatMutation = trpc.admin.toggleChatDisabled.useMutation({
+    onSuccess: (data) => {
+      toast.success(data.isChatDisabled ? "已停用该学生的 AI 聊天功能" : "已恢复该学生的 AI 聊天功能");
+      studentsQuery.refetch();
+      if (expandedClass) classStudentsQuery.refetch();
+    },
+    onError: (err) => toast.error(err.message || "操作失败"),
   });
 
   // Material mutations
@@ -518,6 +527,14 @@ export default function Admin() {
                                             >
                                               {reportGeneratingUserId === student.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
                                             </button>
+                                            <button
+                                              onClick={() => toggleChatMutation.mutate({ userId: student.id, disabled: !(student as any).isChatDisabled })}
+                                              disabled={toggleChatMutation.isPending}
+                                              className={`p-1.5 rounded text-xs transition ${(student as any).isChatDisabled ? 'text-green-600 hover:bg-green-50' : 'text-orange-500 hover:bg-orange-50'}`}
+                                              title={(student as any).isChatDisabled ? "恢复 AI 聊天" : "停用 AI 聊天"}
+                                            >
+                                              {(student as any).isChatDisabled ? <MessageCircle className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
+                                            </button>
                                             <button onClick={() => handleDeleteUser(student.id, student.name || student.username || "学生")} className="p-1.5 rounded text-xs text-red-600 hover:bg-red-50 transition" title="删除用户">
                                               <Trash2 className="w-4 h-4" />
                                             </button>
@@ -590,6 +607,14 @@ export default function Admin() {
                                     title="生成学习报告"
                                   >
                                     {reportGeneratingUserId === student.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <FileText className="w-4 h-4" />}
+                                  </button>
+                                  <button
+                                    onClick={() => toggleChatMutation.mutate({ userId: student.id, disabled: !student.isChatDisabled })}
+                                    disabled={toggleChatMutation.isPending}
+                                    className={`p-1.5 rounded text-xs transition ${student.isChatDisabled ? 'text-green-600 hover:bg-green-50' : 'text-orange-500 hover:bg-orange-50'}`}
+                                    title={student.isChatDisabled ? "恢复 AI 聊天" : "停用 AI 聊天"}
+                                  >
+                                    {student.isChatDisabled ? <MessageCircle className="w-4 h-4" /> : <Ban className="w-4 h-4" />}
                                   </button>
                                   <button onClick={() => handleDeleteUser(student.id, student.name || student.username || "学生")} className="p-1.5 rounded text-xs text-red-600 hover:bg-red-50 transition" title="删除用户">
                                     <Trash2 className="w-4 h-4" />

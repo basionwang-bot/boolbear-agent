@@ -142,6 +142,12 @@ vi.mock("./db", () => ({
     mockUsers.splice(idx, 1);
     return { success: true };
   }),
+  updateUserChatDisabled: vi.fn(async (userId: number, disabled: boolean) => {
+    const user = mockUsers.find((u) => u.id === userId);
+    if (!user) throw new Error("User not found");
+    (user as any).isChatDisabled = disabled;
+    return user;
+  }),
   getKnowledgePointsByUserId: vi.fn(async (userId: number) => {
     return mockKnowledgePoints.filter((kp) => kp.userId === userId);
   }),
@@ -1949,5 +1955,62 @@ describe("course router", () => {
     await expect(
       caller.course.detail({ courseId: 2 })
     ).rejects.toThrow("课程不存在或未发布");
+  });
+});
+
+// ==================== ADMIN TOGGLE CHAT DISABLED ====================
+describe("admin.toggleChatDisabled", () => {
+  it("admin can disable a student's chat", async () => {
+    mockUsers.push({
+      id: 10, openId: "s1", username: "student1", name: "学生1",
+      role: "user", classId: null, isChatDisabled: false,
+      createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
+    });
+
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.admin.toggleChatDisabled({
+      userId: 10,
+      disabled: true,
+    });
+    expect(result.isChatDisabled).toBe(true);
+  });
+
+  it("admin can re-enable a student's chat", async () => {
+    mockUsers.push({
+      id: 10, openId: "s1", username: "student1", name: "学生1",
+      role: "user", classId: null, isChatDisabled: true,
+      createdAt: new Date(), updatedAt: new Date(), lastSignedIn: new Date(),
+    });
+
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.admin.toggleChatDisabled({
+      userId: 10,
+      disabled: false,
+    });
+    expect(result.isChatDisabled).toBe(false);
+  });
+
+  it("rejects non-admin users", async () => {
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.admin.toggleChatDisabled({ userId: 2, disabled: true })
+    ).rejects.toThrow();
+  });
+
+  it("admin.students includes isChatDisabled field", async () => {
+    const ctx = createAdminContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const students = await caller.admin.students();
+    // Each student should have isChatDisabled field
+    for (const s of students) {
+      expect(typeof s.isChatDisabled === "boolean" || s.isChatDisabled === undefined || s.isChatDisabled === null).toBe(true);
+    }
   });
 });

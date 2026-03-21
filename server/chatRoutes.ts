@@ -36,6 +36,12 @@ chatRouter.post("/api/chat/stream", async (req: Request, res: Response) => {
       return;
     }
 
+    // Check if user's chat access is disabled by admin
+    if (user.isChatDisabled) {
+      res.status(403).json({ error: "你的 AI 聊天功能已被管理员停用，请联系老师了解详情" });
+      return;
+    }
+
     const { conversationId, message } = req.body;
     if (!conversationId || !message) {
       res.status(400).json({ error: "缺少参数" });
