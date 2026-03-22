@@ -1,3 +1,10 @@
+// Polyfills for WeChat browser compatibility
+import 'core-js/stable/structured-clone';
+import 'core-js/stable/object/has-own';
+import 'core-js/stable/array/at';
+import 'core-js/stable/array/find-last';
+import 'core-js/stable/string/replace-all';
+
 import { trpc } from "@/lib/trpc";
 import { UNAUTHED_ERR_MSG } from '@shared/const';
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
@@ -43,7 +50,7 @@ const trpcClient = trpc.createClient({
       url: "/api/trpc",
       transformer: superjson,
       fetch(input, init) {
-        return globalThis.fetch(input, {
+        return window.fetch(input, {
           ...(init ?? {}),
           credentials: "include",
         });

@@ -191,3 +191,7 @@
 
 ### 测试
 - [x] 编写分享功能的 vitest 测试（108 个测试全部通过）
+
+## Bug Fixes (3)
+
+- [x] Bug: agentpaly.com 在微信内置浏览器中打开时 JavaScript 运行时错误（根因：structuredClone/Object.hasOwn 不兼容，添加 core-js polyfill + 调整构建目标为 chrome80）
