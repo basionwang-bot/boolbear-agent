@@ -1424,6 +1424,59 @@ const examRouter = router({
       });
       return { isCompleted: newCompleted };
     }),
+
+  /** Generate a share link for an exam analysis */
+  generateShareLink: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const analysis = await db.getExamAnalysisById(input.id);
+      if (!analysis || analysis.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "分析记录不存在" });
+      }
+      if (analysis.status !== "completed") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "分析尚未完成，无法分享" });
+      }
+      // Reuse existing token or generate new one
+      let shareToken = analysis.shareToken;
+      if (!shareToken) {
+        shareToken = nanoid(24);
+        await db.setExamShareToken(input.id, shareToken);
+      }
+      return { shareToken };
+    }),
+
+  /** Public: Get shared exam analysis by token (no auth required) */
+  shareDetail: publicProcedure
+    .input(z.object({ shareToken: z.string().min(1) }))
+    .query(async ({ input }) => {
+      const analysis = await db.getExamAnalysisByShareToken(input.shareToken);
+      if (!analysis || analysis.status !== "completed") {
+        throw new TRPCError({ code: "NOT_FOUND", message: "分享链接无效或已过期" });
+      }
+      // Get the student's bear info for display
+      const bear = await db.getBearByUserId(analysis.userId);
+      const user = await db.getUserById(analysis.userId);
+      const nodes = await db.getLearningPathNodesByAnalysisId(analysis.id);
+      return {
+        id: analysis.id,
+        subject: analysis.subject,
+        examTitle: analysis.examTitle,
+        score: analysis.score,
+        totalScore: analysis.totalScore,
+        overallGrade: analysis.overallGrade,
+        overallComment: analysis.overallComment,
+        dimensionScores: (analysis.dimensionScores || []) as any[],
+        weakPoints: (analysis.weakPoints || []) as any[],
+        strongPoints: (analysis.strongPoints || []) as any[],
+        wrongAnswers: (analysis.wrongAnswers || []) as any[],
+        learningPath: (analysis.learningPath || { phases: [] }) as any,
+        pathNodes: nodes,
+        createdAt: analysis.createdAt,
+        studentName: user?.name || user?.username || "小同学",
+        bearName: bear?.bearName || "小熊",
+        bearType: bear?.bearType || "grizzly",
+      };
+    }),
 });
 
 // ==================== APP ROUTER ====================

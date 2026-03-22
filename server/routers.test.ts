@@ -399,6 +399,8 @@ vi.mock("./db", () => ({
   getLearningPathNodesByAnalysisId: vi.fn(async () => []),
   updateLearningPathNode: vi.fn(async () => {}),
   getLearningPathNodeById: vi.fn(async (id: number) => null as any),
+  getExamAnalysisByShareToken: vi.fn(async (token: string) => null as any),
+  setExamShareToken: vi.fn(async () => {}),
 }));
 
 // Mock sdk.createSessionToken
@@ -2568,5 +2570,117 @@ describe("exam router", () => {
     });
 
     await expect(caller.exam.toggleNode({ nodeId: 700 })).rejects.toThrow("任务不存在");
+  });
+});
+
+
+// ==================== EXAM SHARE TESTS ====================
+
+describe("exam.generateShareLink", () => {
+  it("should generate a share token for a completed analysis", async () => {
+    const user = { id: 1, openId: "share-user", username: "share-user", name: "Share User", role: "user" as const };
+    const caller = appRouter.createCaller(createUserContext(user));
+
+    const { getExamAnalysisById, setExamShareToken } = await import("./db");
+    (getExamAnalysisById as any).mockResolvedValueOnce({
+      id: 500, userId: 1, status: "completed", shareToken: null,
+    });
+
+    const result = await caller.exam.generateShareLink({ id: 500 });
+    expect(result.shareToken).toBeTruthy();
+    expect(typeof result.shareToken).toBe("string");
+    expect(setExamShareToken).toHaveBeenCalledWith(500, expect.any(String));
+  });
+
+  it("should reuse existing share token", async () => {
+    const user = { id: 1, openId: "share-user", username: "share-user", name: "Share User", role: "user" as const };
+    const caller = appRouter.createCaller(createUserContext(user));
+
+    const { getExamAnalysisById, setExamShareToken } = await import("./db");
+    (getExamAnalysisById as any).mockResolvedValueOnce({
+      id: 500, userId: 1, status: "completed", shareToken: "existing-token-123",
+    });
+
+    const result = await caller.exam.generateShareLink({ id: 500 });
+    expect(result.shareToken).toBe("existing-token-123");
+    // Should NOT call setExamShareToken since token already exists
+    expect(setExamShareToken).not.toHaveBeenCalled();
+  });
+
+  it("should reject if analysis is not completed", async () => {
+    const user = { id: 1, openId: "share-user", username: "share-user", name: "Share User", role: "user" as const };
+    const caller = appRouter.createCaller(createUserContext(user));
+
+    const { getExamAnalysisById } = await import("./db");
+    (getExamAnalysisById as any).mockResolvedValueOnce({
+      id: 500, userId: 1, status: "analyzing", shareToken: null,
+    });
+
+    await expect(caller.exam.generateShareLink({ id: 500 })).rejects.toThrow("分析尚未完成");
+  });
+
+  it("should reject if analysis belongs to another user", async () => {
+    const user = { id: 1, openId: "share-user", username: "share-user", name: "Share User", role: "user" as const };
+    const caller = appRouter.createCaller(createUserContext(user));
+
+    const { getExamAnalysisById } = await import("./db");
+    (getExamAnalysisById as any).mockResolvedValueOnce({
+      id: 500, userId: 999, status: "completed", shareToken: null,
+    });
+
+    await expect(caller.exam.generateShareLink({ id: 500 })).rejects.toThrow("分析记录不存在");
+  });
+});
+
+describe("exam.shareDetail", () => {
+  it("should return shared analysis data with bear info", async () => {
+    const caller = appRouter.createCaller({ user: null });
+
+    const { getExamAnalysisByShareToken, getBearByUserId, getUserById, getLearningPathNodesByAnalysisId } = await import("./db");
+    (getExamAnalysisByShareToken as any).mockResolvedValueOnce({
+      id: 500, userId: 1, status: "completed",
+      subject: "数学", examTitle: "期中考试", score: 85, totalScore: 100,
+      overallGrade: "B+", overallComment: "表现不错",
+      dimensionScores: [{ dimension: "计算", score: 90 }],
+      weakPoints: [{ point: "应用题", severity: "medium" }],
+      strongPoints: [{ point: "计算能力" }],
+      wrongAnswers: [],
+      learningPath: { phases: [] },
+      createdAt: new Date(),
+    });
+    (getBearByUserId as any).mockResolvedValueOnce({
+      bearName: "可可", bearType: "grizzly",
+    });
+    (getUserById as any).mockResolvedValueOnce({
+      id: 1, name: "小明", username: "xiaoming",
+    });
+    (getLearningPathNodesByAnalysisId as any).mockResolvedValueOnce([]);
+
+    const result = await caller.exam.shareDetail({ shareToken: "test-token" });
+    expect(result.subject).toBe("数学");
+    expect(result.score).toBe(85);
+    expect(result.studentName).toBe("小明");
+    expect(result.bearName).toBe("可可");
+    expect(result.bearType).toBe("grizzly");
+  });
+
+  it("should reject if share token is invalid", async () => {
+    const caller = appRouter.createCaller({ user: null });
+
+    const { getExamAnalysisByShareToken } = await import("./db");
+    (getExamAnalysisByShareToken as any).mockResolvedValueOnce(null);
+
+    await expect(caller.exam.shareDetail({ shareToken: "invalid" })).rejects.toThrow("分享链接无效或已过期");
+  });
+
+  it("should reject if analysis is not completed", async () => {
+    const caller = appRouter.createCaller({ user: null });
+
+    const { getExamAnalysisByShareToken } = await import("./db");
+    (getExamAnalysisByShareToken as any).mockResolvedValueOnce({
+      id: 500, userId: 1, status: "analyzing",
+    });
+
+    await expect(caller.exam.shareDetail({ shareToken: "analyzing-token" })).rejects.toThrow("分享链接无效或已过期");
   });
 });

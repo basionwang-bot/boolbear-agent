@@ -411,6 +411,8 @@ export const examAnalyses = mysqlTable("exam_analyses", {
   wrongAnswers: json("wrongAnswers"),
   /** Generated learning path (JSON: { phases: [{ title, description, duration, tasks: [{ title, description, type, priority }] }] }) */
   learningPath: json("learningPath"),
+  /** Unique share token for public sharing (e.g. WeChat) */
+  shareToken: varchar("shareToken", { length: 64 }).unique(),
   /** Error message if analysis failed */
   errorMessage: text("errorMessage"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),

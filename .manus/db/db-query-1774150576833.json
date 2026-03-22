@@ -1,0 +1,9 @@
+{
+  "query": "ALTER TABLE `exam_analyses` ADD `shareToken` varchar(64); ALTER TABLE `exam_analyses` ADD CONSTRAINT `exam_analyses_shareToken_unique` UNIQUE(`shareToken`); INSERT INTO `__drizzle_migrations` (`hash`, `created_at`) VALUES ('0010_fixed_the_phantom', UNIX_TIMESTAMP() * 1000);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2XBg1BfGdTzNV6N.ded88a4a5b51 --database 4byKXnSfmNJ8D24Qt3bNEe --execute ALTER TABLE `exam_analyses` ADD `shareToken` varchar(64); ALTER TABLE `exam_analyses` ADD CONSTRAINT `exam_analyses_shareToken_unique` UNIQUE(`shareToken`); INSERT INTO `__drizzle_migrations` (`hash`, `created_at`) VALUES ('0010_fixed_the_phantom', UNIX_TIMESTAMP() * 1000);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 4370
+}

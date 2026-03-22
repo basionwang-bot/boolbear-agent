@@ -1088,3 +1088,18 @@ export async function getLearningPathNodeById(id: number) {
   const rows = await db.select().from(learningPathNodes).where(eq(learningPathNodes.id, id));
   return rows[0] || undefined;
 }
+
+// ==================== EXAM SHARE QUERIES ====================
+
+export async function getExamAnalysisByShareToken(shareToken: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(examAnalyses).where(eq(examAnalyses.shareToken, shareToken)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function setExamShareToken(id: number, shareToken: string) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(examAnalyses).set({ shareToken }).where(eq(examAnalyses.id, id));
+}

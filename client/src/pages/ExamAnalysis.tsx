@@ -10,7 +10,7 @@ import {
   CheckCircle2, XCircle, AlertTriangle, Star, TrendingUp,
   BookOpen, Brain, Target, Clock, ChevronRight, ChevronDown,
   ChevronUp, RotateCcw, Sparkles, Award, Zap, Eye,
-  CircleCheck, Circle, MapPin, Flag
+  CircleCheck, Circle, MapPin, Flag, Share2, Copy, Check
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -513,7 +513,159 @@ function UploadView({ onBack, onCreated }: { onBack: () => void; onCreated: (id:
   );
 }
 
-// ─── Analysis Detail ─────────────────────────────────────────────────
+// ─── Share Button ───────────────────────────────────────────────────────────────
+
+function ShareButton({ analysisId, subject, examTitle, score, totalScore }: {
+  analysisId: number;
+  subject: string;
+  examTitle?: string | null;
+  score: number;
+  totalScore: number;
+}) {
+  const [showPanel, setShowPanel] = useState(false);
+  const [copied, setCopied] = useState(false);
+  const [shareUrl, setShareUrl] = useState("");
+  const generateLink = trpc.exam.generateShareLink.useMutation();
+
+  const handleShare = async () => {
+    try {
+      const { shareToken } = await generateLink.mutateAsync({ id: analysisId });
+      const url = `${window.location.origin}/exam/share/${shareToken}`;
+      setShareUrl(url);
+      setShowPanel(true);
+    } catch (err) {
+      toast.error("生成分享链接失败");
+    }
+  };
+
+  const handleCopy = async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setCopied(true);
+      toast.success("链接已复制，可以发送给家长了");
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      // Fallback for browsers that don't support clipboard API
+      const textArea = document.createElement("textarea");
+      textArea.value = shareUrl;
+      document.body.appendChild(textArea);
+      textArea.select();
+      document.execCommand("copy");
+      document.body.removeChild(textArea);
+      setCopied(true);
+      toast.success("链接已复制");
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  const shareText = `📝 ${examTitle || `${subject}考试`}诊断报告\n🌟 成绩：${score}/${totalScore}\n🐻 小熊 AI 已生成个性化学习路径\n👉 点击查看详细报告`;
+
+  const handleWechatShare = () => {
+    // On mobile, try to use Web Share API (works in WeChat browser)
+    if (navigator.share) {
+      navigator.share({
+        title: `${examTitle || `${subject}考试`}诊断报告`,
+        text: shareText.replace(/\\n/g, "\n"),
+        url: shareUrl,
+      }).catch(() => {
+        // User cancelled or share failed, fall back to copy
+        handleCopy();
+      });
+    } else {
+      handleCopy();
+    }
+  };
+
+  return (
+    <div className="relative">
+      <Button
+        onClick={handleShare}
+        disabled={generateLink.isPending}
+        variant="outline"
+        className="flex items-center gap-2 border-[oklch(0.52_0.09_55/0.3)] text-[oklch(0.42_0.09_55)] hover:bg-[oklch(0.52_0.09_55/0.08)]"
+      >
+        {generateLink.isPending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Share2 className="w-4 h-4" />}
+        分享给家长
+      </Button>
+
+      <AnimatePresence>
+        {showPanel && (
+          <>
+            {/* Backdrop */}
+            <div className="fixed inset-0 z-40" onClick={() => setShowPanel(false)} />
+            {/* Share Panel */}
+            <motion.div
+              initial={{ opacity: 0, y: -10, scale: 0.95 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -10, scale: 0.95 }}
+              className="absolute right-0 top-full mt-2 z-50 w-80 sm:w-96 bear-card p-5 shadow-xl"
+            >
+              <h3 className="font-bold text-base mb-3 flex items-center gap-2" style={{ color: "oklch(0.30 0.06 55)" }}>
+                <Share2 className="w-4 h-4" style={{ color: "oklch(0.52 0.09 55)" }} />
+                分享诊断报告
+              </h3>
+
+              {/* Share link */}
+              <div className="flex items-center gap-2 mb-4">
+                <input
+                  readOnly
+                  value={shareUrl}
+                  className="flex-1 text-xs px-3 py-2 rounded-lg bg-muted border border-border truncate"
+                />
+                <Button
+                  size="sm"
+                  onClick={handleCopy}
+                  className="shrink-0"
+                  style={{ background: copied ? "oklch(0.55 0.15 155)" : "oklch(0.52 0.09 55)" }}
+                >
+                  {copied ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                </Button>
+              </div>
+
+              {/* Share options */}
+              <div className="space-y-2">
+                <button
+                  onClick={handleWechatShare}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted transition-colors text-left"
+                >
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "oklch(0.55 0.15 155 / 0.12)" }}>
+                    <svg viewBox="0 0 24 24" className="w-5 h-5" fill="oklch(0.45 0.15 155)">
+                      <path d="M8.691 2.188C3.891 2.188 0 5.476 0 9.53c0 2.212 1.17 4.203 3.002 5.55a.59.59 0 0 1 .213.665l-.39 1.48c-.019.07-.048.141-.048.213 0 .163.13.295.29.295a.326.326 0 0 0 .167-.054l1.903-1.114a.864.864 0 0 1 .717-.098 10.16 10.16 0 0 0 2.837.403c.276 0 .543-.027.811-.05-.857-2.578.157-4.972 1.932-6.446 1.703-1.415 3.882-1.98 5.853-1.838-.576-3.583-4.196-6.348-8.596-6.348zM5.785 5.991c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178A1.17 1.17 0 0 1 4.623 7.17c0-.651.52-1.18 1.162-1.18zm5.813 0c.642 0 1.162.529 1.162 1.18a1.17 1.17 0 0 1-1.162 1.178 1.17 1.17 0 0 1-1.162-1.178c0-.651.52-1.18 1.162-1.18zm5.34 2.867c-1.797-.052-3.746.512-5.28 1.786-1.72 1.428-2.687 3.72-1.78 6.22.942 2.453 3.666 4.229 6.884 4.229.826 0 1.622-.12 2.361-.336a.722.722 0 0 1 .598.082l1.584.926a.272.272 0 0 0 .14.047c.134 0 .24-.111.24-.247 0-.06-.023-.12-.038-.177l-.327-1.233a.582.582 0 0 1-.023-.156.49.49 0 0 1 .201-.398C23.024 18.48 24 16.82 24 14.98c0-3.21-2.931-5.837-7.062-6.122zm-2.036 2.84c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.97-.982zm4.844 0c.535 0 .969.44.969.982a.976.976 0 0 1-.969.983.976.976 0 0 1-.969-.983c0-.542.434-.982.97-.982z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm" style={{ color: "oklch(0.30 0.06 55)" }}>微信分享</div>
+                    <div className="text-xs text-muted-foreground">复制链接后发送给家长，或直接分享到微信</div>
+                  </div>
+                </button>
+
+                <button
+                  onClick={handleCopy}
+                  className="w-full flex items-center gap-3 px-4 py-3 rounded-xl hover:bg-muted transition-colors text-left"
+                >
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center" style={{ background: "oklch(0.52 0.09 55 / 0.12)" }}>
+                    <Copy className="w-5 h-5" style={{ color: "oklch(0.42 0.09 55)" }} />
+                  </div>
+                  <div>
+                    <div className="font-semibold text-sm" style={{ color: "oklch(0.30 0.06 55)" }}>复制链接</div>
+                    <div className="text-xs text-muted-foreground">复制报告链接到剪贴板</div>
+                  </div>
+                </button>
+              </div>
+
+              {/* Tip */}
+              <div className="mt-3 px-3 py-2 rounded-lg text-xs text-muted-foreground" style={{ background: "oklch(0.52 0.09 55 / 0.05)" }}>
+                💡 家长无需登录即可查看报告，链接永久有效
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+// ─── Analysis Detail ─────────────────────────────────────────────────────────────
 
 function AnalysisDetail({ id, onBack }: { id: number; onBack: () => void }) {
   const { data, isLoading, refetch } = trpc.exam.detail.useQuery(
@@ -637,10 +789,13 @@ function AnalysisDetail({ id, onBack }: { id: number; onBack: () => void }) {
     <div className="min-h-screen bg-background">
       <Navbar />
       <div className="container py-8 max-w-5xl">
-        {/* Back button */}
-        <button onClick={onBack} className="flex items-center gap-2 text-muted-foreground hover:text-foreground mb-6 transition-colors">
-          <ArrowLeft className="w-4 h-4" /> 返回列表
-        </button>
+        {/* Back button + Share button */}
+        <div className="flex items-center justify-between mb-6">
+          <button onClick={onBack} className="flex items-center gap-2 text-muted-foreground hover:text-foreground transition-colors">
+            <ArrowLeft className="w-4 h-4" /> 返回列表
+          </button>
+          {data.status === "completed" && <ShareButton analysisId={id} subject={data.subject} examTitle={data.examTitle} score={data.score} totalScore={data.totalScore} />}
+        </div>
 
         {/* ═══ Score Overview Card ═══ */}
         <motion.div
