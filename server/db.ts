@@ -1,6 +1,6 @@
 import { eq, desc, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, parentShareTokens, learningMaterials, generatedCourses, courseChapters, studentCourseProgress, chapterPages, pageQuestions, studentAnswers, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint, type InsertParentShareToken, type InsertLearningMaterial, type InsertGeneratedCourse, type InsertCourseChapter, type InsertStudentCourseProgress, type InsertChapterPage, type InsertPageQuestion, type InsertStudentAnswer } from "../drizzle/schema";
+import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, parentShareTokens, learningMaterials, generatedCourses, courseChapters, studentCourseProgress, chapterPages, pageQuestions, studentAnswers, examAnalyses, learningPathNodes, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint, type InsertParentShareToken, type InsertLearningMaterial, type InsertGeneratedCourse, type InsertCourseChapter, type InsertStudentCourseProgress, type InsertChapterPage, type InsertPageQuestion, type InsertStudentAnswer, type InsertExamAnalysis, type InsertLearningPathNode } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1018,4 +1018,73 @@ export async function getChapterPageProgress(userId: number, chapterId: number) 
   }
   
   return { totalPages: pages.length, passedPages, pageStatuses };
+}
+
+// ==================== EXAM ANALYSIS QUERIES ====================
+
+export async function createExamAnalysis(data: InsertExamAnalysis) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(examAnalyses).values(data).$returningId();
+  return { id: result.id, ...data };
+}
+
+export async function getExamAnalysisById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(examAnalyses).where(eq(examAnalyses.id, id));
+  return rows[0] || undefined;
+}
+
+export async function listExamAnalysesByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(examAnalyses)
+    .where(eq(examAnalyses.userId, userId))
+    .orderBy(desc(examAnalyses.createdAt));
+}
+
+export async function updateExamAnalysis(id: number, data: Partial<InsertExamAnalysis>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(examAnalyses).set(data).where(eq(examAnalyses.id, id));
+}
+
+export async function deleteExamAnalysis(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // Delete associated learning path nodes first
+  await db.delete(learningPathNodes).where(eq(learningPathNodes.examAnalysisId, id));
+  await db.delete(examAnalyses).where(eq(examAnalyses.id, id));
+}
+
+// ==================== LEARNING PATH NODE QUERIES ====================
+
+export async function createLearningPathNodesBatch(dataList: InsertLearningPathNode[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  if (dataList.length === 0) return [];
+  const results = await db.insert(learningPathNodes).values(dataList).$returningId();
+  return dataList.map((d, i) => ({ id: results[i].id, ...d }));
+}
+
+export async function getLearningPathNodesByAnalysisId(examAnalysisId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(learningPathNodes)
+    .where(eq(learningPathNodes.examAnalysisId, examAnalysisId))
+    .orderBy(learningPathNodes.phaseIndex, learningPathNodes.nodeIndex);
+}
+
+export async function updateLearningPathNode(id: number, data: Partial<InsertLearningPathNode>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(learningPathNodes).set(data).where(eq(learningPathNodes.id, id));
+}
+
+export async function getLearningPathNodeById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(learningPathNodes).where(eq(learningPathNodes.id, id));
+  return rows[0] || undefined;
 }

@@ -389,6 +389,16 @@ vi.mock("./db", () => ({
   createPageQuestionsBatch: vi.fn(async (dataList: any[]) => dataList.map((d: any, i: number) => ({ id: 600 + i, ...d, createdAt: new Date() }))),
   updateChapterPage: vi.fn(async () => {}),
   deletePagesByChapterId: vi.fn(async () => {}),
+  // Exam analysis mocks
+  createExamAnalysis: vi.fn(async (data: any) => ({ id: 500, ...data, createdAt: new Date(), updatedAt: new Date() })),
+  getExamAnalysisById: vi.fn(async (id: number) => null as any),
+  listExamAnalysesByUserId: vi.fn(async () => []),
+  updateExamAnalysis: vi.fn(async () => {}),
+  deleteExamAnalysis: vi.fn(async () => {}),
+  createLearningPathNodesBatch: vi.fn(async (dataList: any[]) => dataList.map((d: any, i: number) => ({ id: 700 + i, ...d, isCompleted: false, completedAt: null, createdAt: new Date() }))),
+  getLearningPathNodesByAnalysisId: vi.fn(async () => []),
+  updateLearningPathNode: vi.fn(async () => {}),
+  getLearningPathNodeById: vi.fn(async (id: number) => null as any),
 }));
 
 // Mock sdk.createSessionToken
@@ -1032,6 +1042,37 @@ vi.mock("./courseGenerator", () => ({
       { questionIndex: 2, questionType: "judge", question: "1+1=3", options: ["对", "错"], correctAnswer: "错", explanation: "1+1=2" },
     ],
   })),
+}));
+
+vi.mock("./examAnalyzer", () => ({
+  analyzeExamPaper: vi.fn(async () => ({
+    overallGrade: "B+",
+    overallComment: "整体表现良好",
+    dimensionScores: [{ name: "计算能力", score: 85, fullScore: 100 }],
+    weakPoints: [{ name: "应用题", description: "需加强练习", severity: "medium" }],
+    strongPoints: [{ name: "基础计算", description: "掌握较好" }],
+    wrongAnswers: [{ questionNumber: "3", questionSummary: "应用题", studentAnswer: "10", correctAnswer: "15", errorType: "计算错误", explanation: "需要乘法", knowledgePoint: "乘法应用" }],
+    learningPath: [{
+      phaseIndex: 1,
+      title: "基础巩固",
+      description: "复习基础知识",
+      duration: "1周",
+      tasks: [{
+        taskIndex: 1,
+        title: "复习乘法",
+        description: "练习乘法运算",
+        taskType: "study",
+        priority: "high",
+        knowledgePoint: "乘法",
+        estimatedMinutes: 30,
+        resources: "教材第3章",
+      }],
+    }],
+  })),
+}));
+
+vi.mock("./storage", () => ({
+  storagePut: vi.fn(async (key: string) => ({ key, url: `https://mock-cdn.com/${key}` })),
 }));
 
 describe("knowledge router", () => {
@@ -2341,5 +2382,191 @@ describe("course.submitAnswer", () => {
 
     expect(result.isCorrect).toBe(true);
     expect(result.attemptNumber).toBe(3);
+  });
+});
+
+
+// ==================== EXAM ROUTER TESTS ====================
+
+describe("exam router", () => {
+  it("create: uploads images and creates analysis record", async () => {
+    const { createExamAnalysis } = await import("./db");
+    const { storagePut } = await import("./storage");
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    // Small 1x1 transparent PNG in base64
+    const tinyPng = "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+
+    const result = await caller.exam.create({
+      subject: "数学",
+      examTitle: "期中考试",
+      score: 85,
+      totalScore: 100,
+      imageDataList: [
+        { base64: tinyPng, mimeType: "image/png", fileName: "page1.png" },
+      ],
+    });
+
+    expect(result.id).toBe(500);
+    expect(result.status).toBe("analyzing");
+    expect(storagePut).toHaveBeenCalled();
+    expect(createExamAnalysis).toHaveBeenCalledWith(
+      expect.objectContaining({
+        userId: ctx.user!.id,
+        subject: "数学",
+        score: 85,
+        totalScore: 100,
+        status: "analyzing",
+      })
+    );
+  });
+
+  it("detail: returns analysis with path nodes for owner", async () => {
+    const { getExamAnalysisById, getLearningPathNodesByAnalysisId } = await import("./db");
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const mockAnalysis = {
+      id: 500,
+      userId: ctx.user!.id,
+      subject: "数学",
+      examTitle: "期中考试",
+      score: 85,
+      totalScore: 100,
+      status: "completed",
+      overallGrade: "B+",
+      overallComment: "整体表现良好",
+      dimensionScores: [{ name: "计算能力", score: 85, fullScore: 100 }],
+      weakPoints: [{ name: "应用题", description: "需加强", severity: "medium" }],
+      strongPoints: [{ name: "基础计算", description: "掌握较好" }],
+      wrongAnswers: [],
+      learningPath: { phases: [] },
+      imageUrls: ["https://mock-cdn.com/test.png"],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+
+    const mockNodes = [
+      { id: 700, examAnalysisId: 500, userId: ctx.user!.id, phaseIndex: 1, nodeIndex: 1, title: "复习乘法", isCompleted: false },
+    ];
+
+    (getExamAnalysisById as any).mockResolvedValueOnce(mockAnalysis);
+    (getLearningPathNodesByAnalysisId as any).mockResolvedValueOnce(mockNodes);
+
+    const result = await caller.exam.detail({ id: 500 });
+
+    expect(result.subject).toBe("数学");
+    expect(result.overallGrade).toBe("B+");
+    expect(result.pathNodes).toHaveLength(1);
+    expect(result.pathNodes[0].title).toBe("复习乘法");
+  });
+
+  it("detail: throws NOT_FOUND for other user's analysis", async () => {
+    const { getExamAnalysisById } = await import("./db");
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    (getExamAnalysisById as any).mockResolvedValueOnce({
+      id: 500,
+      userId: 999, // different user
+    });
+
+    await expect(caller.exam.detail({ id: 500 })).rejects.toThrow("分析记录不存在");
+  });
+
+  it("list: returns analyses for current user", async () => {
+    const { listExamAnalysesByUserId } = await import("./db");
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const mockList = [
+      { id: 500, userId: ctx.user!.id, subject: "数学", score: 85, status: "completed" },
+      { id: 501, userId: ctx.user!.id, subject: "英语", score: 72, status: "analyzing" },
+    ];
+    (listExamAnalysesByUserId as any).mockResolvedValueOnce(mockList);
+
+    const result = await caller.exam.list();
+    expect(result).toHaveLength(2);
+    expect(result[0].subject).toBe("数学");
+  });
+
+  it("delete: removes own analysis", async () => {
+    const { getExamAnalysisById, deleteExamAnalysis } = await import("./db");
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    (getExamAnalysisById as any).mockResolvedValueOnce({
+      id: 500,
+      userId: ctx.user!.id,
+    });
+
+    const result = await caller.exam.delete({ id: 500 });
+    expect(result.success).toBe(true);
+    expect(deleteExamAnalysis).toHaveBeenCalledWith(500);
+  });
+
+  it("delete: throws NOT_FOUND for other user's analysis", async () => {
+    const { getExamAnalysisById } = await import("./db");
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    (getExamAnalysisById as any).mockResolvedValueOnce({
+      id: 500,
+      userId: 999,
+    });
+
+    await expect(caller.exam.delete({ id: 500 })).rejects.toThrow("分析记录不存在");
+  });
+
+  it("toggleNode: toggles completion status", async () => {
+    const { getLearningPathNodeById, updateLearningPathNode } = await import("./db");
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    (getLearningPathNodeById as any).mockResolvedValueOnce({
+      id: 700,
+      userId: ctx.user!.id,
+      isCompleted: false,
+    });
+
+    const result = await caller.exam.toggleNode({ nodeId: 700 });
+    expect(result.isCompleted).toBe(true);
+    expect(updateLearningPathNode).toHaveBeenCalledWith(700, expect.objectContaining({
+      isCompleted: true,
+    }));
+  });
+
+  it("toggleNode: untoggle completed node", async () => {
+    const { getLearningPathNodeById, updateLearningPathNode } = await import("./db");
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    (getLearningPathNodeById as any).mockResolvedValueOnce({
+      id: 700,
+      userId: ctx.user!.id,
+      isCompleted: true,
+    });
+
+    const result = await caller.exam.toggleNode({ nodeId: 700 });
+    expect(result.isCompleted).toBe(false);
+    expect(updateLearningPathNode).toHaveBeenCalledWith(700, expect.objectContaining({
+      isCompleted: false,
+      completedAt: null,
+    }));
+  });
+
+  it("toggleNode: throws NOT_FOUND for other user's node", async () => {
+    const { getLearningPathNodeById } = await import("./db");
+    const ctx = createUserContext();
+    const caller = appRouter.createCaller(ctx);
+
+    (getLearningPathNodeById as any).mockResolvedValueOnce({
+      id: 700,
+      userId: 999,
+      isCompleted: false,
+    });
+
+    await expect(caller.exam.toggleNode({ nodeId: 700 })).rejects.toThrow("任务不存在");
   });
 });

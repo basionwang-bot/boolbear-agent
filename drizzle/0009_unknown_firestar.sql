@@ -1,0 +1,40 @@
+CREATE TABLE `exam_analyses` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`userId` int NOT NULL,
+	`subject` varchar(64) NOT NULL,
+	`examTitle` varchar(256),
+	`score` int NOT NULL,
+	`totalScore` int NOT NULL DEFAULT 100,
+	`imageUrls` json NOT NULL,
+	`status` enum('uploading','analyzing','completed','failed') NOT NULL DEFAULT 'uploading',
+	`overallGrade` varchar(32),
+	`overallComment` text,
+	`dimensionScores` json,
+	`weakPoints` json,
+	`strongPoints` json,
+	`wrongAnswers` json,
+	`learningPath` json,
+	`errorMessage` text,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `exam_analyses_id` PRIMARY KEY(`id`)
+);
+--> statement-breakpoint
+CREATE TABLE `learning_path_nodes` (
+	`id` int AUTO_INCREMENT NOT NULL,
+	`examAnalysisId` int NOT NULL,
+	`userId` int NOT NULL,
+	`phaseIndex` int NOT NULL,
+	`nodeIndex` int NOT NULL,
+	`title` varchar(256) NOT NULL,
+	`description` text,
+	`taskType` enum('study','practice','review','test') NOT NULL DEFAULT 'study',
+	`priority` enum('high','medium','low') NOT NULL DEFAULT 'medium',
+	`knowledgePoint` varchar(128),
+	`estimatedMinutes` int NOT NULL DEFAULT 30,
+	`isCompleted` boolean NOT NULL DEFAULT false,
+	`completedAt` timestamp,
+	`createdAt` timestamp NOT NULL DEFAULT (now()),
+	`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,
+	CONSTRAINT `learning_path_nodes_id` PRIMARY KEY(`id`)
+);

@@ -11,6 +11,8 @@ import { sdk } from "./_core/sdk";
 import { ONE_YEAR_MS } from "@shared/const";
 import { extractAndSaveKnowledgePoints } from "./knowledgeExtractor";
 import { generateCourseOutline, generateChapterContent, generateChapterPages, generatePageQuestions } from "./courseGenerator";
+import { analyzeExamPaper } from "./examAnalyzer";
+import { storagePut } from "./storage";
 
 // ==================== AUTH ROUTER ====================
 
@@ -1275,6 +1277,155 @@ const courseRouter = router({
     }),
 });
 
+// ==================== EXAM ANALYSIS ROUTER ====================
+
+const examRouter = router({
+  /** Upload exam images and create analysis record */
+  create: protectedProcedure
+    .input(z.object({
+      subject: z.string().min(1).max(64),
+      examTitle: z.string().max(256).optional(),
+      score: z.number().int().min(0),
+      totalScore: z.number().int().min(1).default(100),
+      imageDataList: z.array(z.object({
+        base64: z.string(),
+        mimeType: z.string(),
+        fileName: z.string(),
+      })).min(1).max(10),
+    }))
+    .mutation(async ({ ctx, input }) => {
+      // 1. Upload images to S3
+      const imageUrls: string[] = [];
+      for (const img of input.imageDataList) {
+        const buffer = Buffer.from(img.base64, "base64");
+        const suffix = Math.random().toString(36).slice(2, 8);
+        const key = `exam-papers/${ctx.user.id}/${Date.now()}-${suffix}-${img.fileName}`;
+        const { url } = await storagePut(key, buffer, img.mimeType);
+        imageUrls.push(url);
+      }
+
+      // 2. Create analysis record
+      const record = await db.createExamAnalysis({
+        userId: ctx.user.id,
+        subject: input.subject,
+        examTitle: input.examTitle || null,
+        score: input.score,
+        totalScore: input.totalScore,
+        imageUrls,
+        status: "analyzing",
+      });
+
+      // 3. Start async analysis (don't await - let it run in background)
+      (async () => {
+        try {
+          console.log(`[Exam] Starting analysis for record ${record.id}`);
+          const result = await analyzeExamPaper(
+            imageUrls,
+            input.subject,
+            input.score,
+            input.totalScore,
+            input.examTitle || undefined
+          );
+
+          // Save analysis results
+          await db.updateExamAnalysis(record.id, {
+            status: "completed",
+            overallGrade: result.overallGrade,
+            overallComment: result.overallComment,
+            dimensionScores: result.dimensionScores,
+            weakPoints: result.weakPoints,
+            strongPoints: result.strongPoints,
+            wrongAnswers: result.wrongAnswers,
+            learningPath: result.learningPath,
+          });
+
+          // Create learning path nodes in DB for tracking
+          const nodes = result.learningPath.flatMap(phase =>
+            phase.tasks.map(task => ({
+              examAnalysisId: record.id,
+              userId: ctx.user.id,
+              phaseIndex: phase.phaseIndex,
+              nodeIndex: task.taskIndex,
+              title: task.title,
+              description: task.description,
+              taskType: task.taskType as "study" | "practice" | "review" | "test",
+              priority: task.priority as "high" | "medium" | "low",
+              knowledgePoint: task.knowledgePoint,
+              estimatedMinutes: task.estimatedMinutes,
+            }))
+          );
+          if (nodes.length > 0) {
+            await db.createLearningPathNodesBatch(nodes);
+          }
+
+          console.log(`[Exam] Analysis completed for record ${record.id}`);
+        } catch (err) {
+          console.error(`[Exam] Analysis failed for record ${record.id}:`, err);
+          await db.updateExamAnalysis(record.id, {
+            status: "failed",
+            errorMessage: err instanceof Error ? err.message : "Unknown error",
+          });
+        }
+      })();
+
+      return { id: record.id, status: "analyzing" };
+    }),
+
+  /** Get analysis result by ID */
+  detail: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .query(async ({ ctx, input }) => {
+      const analysis = await db.getExamAnalysisById(input.id);
+      if (!analysis || analysis.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "分析记录不存在" });
+      }
+      const nodes = await db.getLearningPathNodesByAnalysisId(input.id);
+      return {
+        ...analysis,
+        dimensionScores: (analysis.dimensionScores || []) as any[],
+        weakPoints: (analysis.weakPoints || []) as any[],
+        strongPoints: (analysis.strongPoints || []) as any[],
+        wrongAnswers: (analysis.wrongAnswers || []) as any[],
+        learningPath: (analysis.learningPath || { phases: [] }) as any,
+        imageUrls: (analysis.imageUrls || []) as string[],
+        pathNodes: nodes,
+      };
+    }),
+
+  /** List all analyses for current user */
+  list: protectedProcedure.query(async ({ ctx }) => {
+    return db.listExamAnalysesByUserId(ctx.user.id);
+  }),
+
+  /** Delete an analysis */
+  delete: protectedProcedure
+    .input(z.object({ id: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const analysis = await db.getExamAnalysisById(input.id);
+      if (!analysis || analysis.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "分析记录不存在" });
+      }
+      await db.deleteExamAnalysis(input.id);
+      return { success: true };
+    }),
+
+  /** Toggle a learning path node completion */
+  toggleNode: protectedProcedure
+    .input(z.object({ nodeId: z.number().int().positive() }))
+    .mutation(async ({ ctx, input }) => {
+      const node = await db.getLearningPathNodeById(input.nodeId);
+      if (!node || node.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "任务不存在" });
+      }
+      const newCompleted = !node.isCompleted;
+      await db.updateLearningPathNode(input.nodeId, {
+        isCompleted: newCompleted,
+        completedAt: newCompleted ? new Date() : null,
+      });
+      return { isCompleted: newCompleted };
+    }),
+});
+
 // ==================== APP ROUTER ====================
 
 export const appRouter = router({
@@ -1289,6 +1440,7 @@ export const appRouter = router({
   learningTime: learningTimeRouter,
   material: materialRouter,
   course: courseRouter,
+  exam: examRouter,
 });
 
 export type AppRouter = typeof appRouter;

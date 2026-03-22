@@ -14,6 +14,7 @@ import AuthPage from "./pages/AuthPage";
 import Admin from "./pages/Admin";
 import ParentReport from "./pages/ParentReport";
 import Courses from "./pages/Courses";
+import ExamAnalysis from "./pages/ExamAnalysis";
 
 function Router() {
   // make sure to consider if you need authentication for certain routes
@@ -28,6 +29,8 @@ function Router() {
       <Route path="/gallery" component={BearGallery} />
       <Route path="/admin" component={Admin} />
       <Route path="/courses" component={Courses} />
+      <Route path="/exam" component={ExamAnalysis} />
+      <Route path="/exam/:id" component={ExamAnalysis} />
       <Route path="/parent/:token" component={ParentReport} />
       <Route path="/404" component={NotFound} />
       <Route component={NotFound} />

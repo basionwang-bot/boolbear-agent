@@ -376,3 +376,83 @@ export const studentAnswers = mysqlTable("student_answers", {
 
 export type StudentAnswer = typeof studentAnswers.$inferSelect;
 export type InsertStudentAnswer = typeof studentAnswers.$inferInsert;
+
+/**
+ * Exam analyses table — stores uploaded exam papers and AI analysis results.
+ * Each record represents one exam paper analysis session.
+ */
+export const examAnalyses = mysqlTable("exam_analyses", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Student user ID */
+  userId: int("userId").notNull(),
+  /** Subject of the exam */
+  subject: varchar("subject", { length: 64 }).notNull(),
+  /** Exam title / description, e.g. "期中考试" */
+  examTitle: varchar("examTitle", { length: 256 }),
+  /** Total score achieved */
+  score: int("score").notNull(),
+  /** Total possible score (default 100) */
+  totalScore: int("totalScore").default(100).notNull(),
+  /** Uploaded exam paper image URLs (JSON array of strings) */
+  imageUrls: json("imageUrls").notNull(),
+  /** AI analysis status */
+  status: mysqlEnum("status", ["uploading", "analyzing", "completed", "failed"]).default("uploading").notNull(),
+  /** Overall grade/level assessment, e.g. "B+", "良好" */
+  overallGrade: varchar("overallGrade", { length: 32 }),
+  /** AI-generated overall comment */
+  overallComment: text("overallComment"),
+  /** Dimension scores for radar chart (JSON: { dimensionName: score }) */
+  dimensionScores: json("dimensionScores"),
+  /** Identified weak points (JSON array of { name, description, severity }) */
+  weakPoints: json("weakPoints"),
+  /** Identified strong points (JSON array of { name, description }) */
+  strongPoints: json("strongPoints"),
+  /** Wrong answers analysis (JSON array of { question, studentAnswer, correctAnswer, errorType, explanation, knowledgePoint }) */
+  wrongAnswers: json("wrongAnswers"),
+  /** Generated learning path (JSON: { phases: [{ title, description, duration, tasks: [{ title, description, type, priority }] }] }) */
+  learningPath: json("learningPath"),
+  /** Error message if analysis failed */
+  errorMessage: text("errorMessage"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type ExamAnalysis = typeof examAnalyses.$inferSelect;
+export type InsertExamAnalysis = typeof examAnalyses.$inferInsert;
+
+/**
+ * Learning path nodes table — individual tasks/milestones in a learning path.
+ * Linked to an exam analysis, tracks completion status.
+ */
+export const learningPathNodes = mysqlTable("learning_path_nodes", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Parent exam analysis ID */
+  examAnalysisId: int("examAnalysisId").notNull(),
+  /** Student user ID */
+  userId: int("userId").notNull(),
+  /** Phase index (1-based, groups nodes into phases) */
+  phaseIndex: int("phaseIndex").notNull(),
+  /** Node order within the phase (1-based) */
+  nodeIndex: int("nodeIndex").notNull(),
+  /** Node title */
+  title: varchar("title", { length: 256 }).notNull(),
+  /** Detailed description / learning content */
+  description: text("description"),
+  /** Task type: study, practice, review, test */
+  taskType: mysqlEnum("taskType", ["study", "practice", "review", "test"]).default("study").notNull(),
+  /** Priority: high, medium, low */
+  priority: mysqlEnum("priority", ["high", "medium", "low"]).default("medium").notNull(),
+  /** Related knowledge point / topic */
+  knowledgePoint: varchar("knowledgePoint", { length: 128 }),
+  /** Estimated time in minutes */
+  estimatedMinutes: int("estimatedMinutes").default(30).notNull(),
+  /** Completion status */
+  isCompleted: boolean("isCompleted").default(false).notNull(),
+  /** When the node was completed */
+  completedAt: timestamp("completedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type LearningPathNode = typeof learningPathNodes.$inferSelect;
+export type InsertLearningPathNode = typeof learningPathNodes.$inferInsert;
