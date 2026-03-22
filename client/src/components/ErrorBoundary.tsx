@@ -9,47 +9,125 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  errorInfo: string;
 }
 
 class ErrorBoundary extends Component<Props, State> {
   constructor(props: Props) {
     super(props);
-    this.state = { hasError: false, error: null };
+    this.state = { hasError: false, error: null, errorInfo: "" };
   }
 
-  static getDerivedStateFromError(error: Error): State {
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
+  }
+
+  componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
+    // Log detailed error info for debugging
+    const info = [
+      "Error: " + String(error),
+      "Message: " + (error.message || "N/A"),
+      "Name: " + (error.name || "N/A"),
+      "Component Stack: " + (errorInfo.componentStack || "N/A"),
+      "UA: " + navigator.userAgent,
+    ].join("\n\n");
+    this.setState({ errorInfo: info });
   }
 
   render() {
     if (this.state.hasError) {
+      const errorMessage = this.state.error
+        ? String(this.state.error.message || this.state.error)
+        : "Unknown error";
+      const errorStack = this.state.error?.stack || "";
+
       return (
-        <div className="flex items-center justify-center min-h-screen p-8 bg-background">
-          <div className="flex flex-col items-center w-full max-w-2xl p-8">
-            <AlertTriangle
-              size={48}
-              className="text-destructive mb-6 flex-shrink-0"
-            />
+        <div style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          minHeight: "100vh",
+          padding: "32px",
+          backgroundColor: "#faf8f5",
+          fontFamily: "system-ui, -apple-system, sans-serif",
+        }}>
+          <div style={{
+            display: "flex",
+            flexDirection: "column",
+            alignItems: "center",
+            width: "100%",
+            maxWidth: "640px",
+            padding: "32px",
+          }}>
+            <div style={{ color: "#e53e3e", marginBottom: "24px", fontSize: "48px" }}>
+              ⚠️
+            </div>
 
-            <h2 className="text-xl mb-4">An unexpected error occurred.</h2>
+            <h2 style={{ fontSize: "20px", marginBottom: "8px", color: "#333" }}>
+              页面加载出错
+            </h2>
+            <p style={{ fontSize: "14px", marginBottom: "16px", color: "#666" }}>
+              {errorMessage}
+            </p>
 
-            <div className="p-4 w-full rounded bg-muted overflow-auto mb-6">
-              <pre className="text-sm text-muted-foreground whitespace-break-spaces">
-                {this.state.error?.stack}
+            <div style={{
+              padding: "16px",
+              width: "100%",
+              borderRadius: "8px",
+              backgroundColor: "#f0ede8",
+              overflow: "auto",
+              marginBottom: "16px",
+              maxHeight: "300px",
+            }}>
+              <pre style={{
+                fontSize: "11px",
+                color: "#666",
+                whiteSpace: "pre-wrap",
+                wordBreak: "break-all",
+                margin: 0,
+              }}>
+                {errorStack || this.state.errorInfo || "No stack trace available"}
               </pre>
             </div>
 
-            <button
-              onClick={() => window.location.reload()}
-              className={cn(
-                "flex items-center gap-2 px-4 py-2 rounded-lg",
-                "bg-primary text-primary-foreground",
-                "hover:opacity-90 cursor-pointer"
-              )}
-            >
-              <RotateCcw size={16} />
-              Reload Page
-            </button>
+            <div style={{ display: "flex", gap: "12px" }}>
+              <button
+                onClick={() => window.location.reload()}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "8px 20px",
+                  borderRadius: "8px",
+                  backgroundColor: "#8B6914",
+                  color: "white",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                }}
+              >
+                🔄 重新加载
+              </button>
+              <button
+                onClick={() => {
+                  window.location.href = "/";
+                }}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "8px",
+                  padding: "8px 20px",
+                  borderRadius: "8px",
+                  backgroundColor: "#e8e4dc",
+                  color: "#333",
+                  border: "none",
+                  cursor: "pointer",
+                  fontSize: "14px",
+                }}
+              >
+                🏠 返回首页
+              </button>
+            </div>
           </div>
         </div>
       );

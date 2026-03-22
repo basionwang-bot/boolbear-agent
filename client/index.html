@@ -1,6 +1,5 @@
 <!doctype html>
 <html lang="zh-CN">
-
   <head>
     <meta charset="UTF-8" />
     <meta
@@ -10,8 +9,125 @@
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;500;600;700;800;900&family=Noto+Sans+SC:wght@400;500;600;700;900&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet" />
-  </head>
+    <script>
+      // Inline critical polyfills for WeChat browser (Chrome 78+)
+      // These must load before any module scripts
+      (function() {
+        // globalThis polyfill
+        if (typeof globalThis === 'undefined') {
+          if (typeof self !== 'undefined') { self.globalThis = self; }
+          else if (typeof window !== 'undefined') { window.globalThis = window; }
+          else if (typeof global !== 'undefined') { global.globalThis = global; }
+        }
+        // Object.hasOwn polyfill
+        if (!Object.hasOwn) {
+          Object.hasOwn = function(obj, prop) {
+            return Object.prototype.hasOwnProperty.call(obj, prop);
+          };
+        }
+        // Array.prototype.at polyfill
+        if (!Array.prototype.at) {
+          Array.prototype.at = function(n) {
+            n = Math.trunc(n) || 0;
+            if (n < 0) n += this.length;
+            if (n < 0 || n >= this.length) return undefined;
+            return this[n];
+          };
+        }
+        // String.prototype.at polyfill
+        if (!String.prototype.at) {
+          String.prototype.at = function(n) {
+            n = Math.trunc(n) || 0;
+            if (n < 0) n += this.length;
+            if (n < 0 || n >= this.length) return undefined;
+            return this[n];
+          };
+        }
+        // String.prototype.replaceAll polyfill
+        if (!String.prototype.replaceAll) {
+          String.prototype.replaceAll = function(search, replacement) {
+            if (search instanceof RegExp) {
+              if (!search.global) {
+                throw new TypeError('String.prototype.replaceAll called with a non-global RegExp argument');
+              }
+              return this.replace(search, replacement);
+            }
+            return this.split(search).join(replacement);
+          };
+        }
+        // Array.prototype.findLast polyfill
+        if (!Array.prototype.findLast) {
+          Array.prototype.findLast = function(fn, thisArg) {
+            for (var i = this.length - 1; i >= 0; i--) {
+              if (fn.call(thisArg, this[i], i, this)) return this[i];
+            }
+            return undefined;
+          };
+        }
+        // Array.prototype.findLastIndex polyfill
+        if (!Array.prototype.findLastIndex) {
+          Array.prototype.findLastIndex = function(fn, thisArg) {
+            for (var i = this.length - 1; i >= 0; i--) {
+              if (fn.call(thisArg, this[i], i, this)) return i;
+            }
+            return -1;
+          };
+        }
+        // structuredClone polyfill (basic version for simple objects)
+        if (typeof structuredClone === 'undefined') {
+          window.structuredClone = function(obj) {
+            if (obj === null || obj === undefined) return obj;
+            try {
+              return JSON.parse(JSON.stringify(obj));
+            } catch(e) {
+              // Fallback for non-serializable objects
+              if (typeof obj !== 'object') return obj;
+              if (Array.isArray(obj)) return obj.map(function(item) { return window.structuredClone(item); });
+              var result = {};
+              for (var key in obj) {
+                if (Object.prototype.hasOwnProperty.call(obj, key)) {
+                  result[key] = window.structuredClone(obj[key]);
+                }
+              }
+              return result;
+            }
+          };
+        }
+        // queueMicrotask polyfill (Chrome 71+ has it, but just in case)
+        if (typeof queueMicrotask === 'undefined') {
+          window.queueMicrotask = function(callback) {
+            Promise.resolve().then(callback);
+          };
+        }
+      })();
 
+      // Global error handler - catches errors before React loads
+      window.__PRELOAD_ERRORS__ = [];
+      window.onerror = function(msg, url, line, col, error) {
+        window.__PRELOAD_ERRORS__.push({
+          msg: String(msg),
+          url: String(url),
+          line: line,
+          col: col,
+          stack: error ? error.stack : 'N/A',
+          ua: navigator.userAgent,
+          time: new Date().toISOString()
+        });
+        // Show error if React hasn't loaded yet
+        var root = document.getElementById('root');
+        if (root && !root.hasChildNodes()) {
+          root.innerHTML = '<div style="padding:32px;font-family:system-ui;text-align:center;">' +
+            '<h2 style="color:#e53e3e;">页面加载出错</h2>' +
+            '<p style="color:#666;font-size:14px;">' + String(msg) + '</p>' +
+            '<pre style="text-align:left;font-size:11px;background:#f0f0f0;padding:16px;border-radius:8px;overflow:auto;max-height:200px;">' +
+            (error ? error.stack : 'No stack') + '</pre>' +
+            '<p style="color:#999;font-size:11px;margin-top:8px;">UA: ' + navigator.userAgent + '</p>' +
+            '<button onclick="location.reload()" style="margin-top:16px;padding:8px 24px;border-radius:8px;background:#8B6914;color:white;border:none;">重新加载</button>' +
+            '</div>';
+        }
+      };
+    </script>
+  </head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
@@ -20,5 +136,4 @@
       src="%VITE_ANALYTICS_ENDPOINT%/umami"
       data-website-id="%VITE_ANALYTICS_WEBSITE_ID%"></script>
   </body>
-
 </html>
