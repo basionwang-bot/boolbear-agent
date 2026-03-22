@@ -1,5 +1,8 @@
 @import "tailwindcss";
 @import "tw-animate-css";
+@import "katex/dist/katex.min.css";
+
+@source "../../node_modules/streamdown/dist/index.js";
 
 @custom-variant dark (&:is(.dark *));
 
@@ -191,4 +194,185 @@
   .bear-gradient {
     background: linear-gradient(135deg, oklch(0.97 0.01 85), oklch(0.94 0.02 155 / 0.3), oklch(0.96 0.015 85));
   }
+}
+
+/* ========== Chat Markdown 样式 ========== */
+
+/* 对话气泡内的 Markdown 排版 */
+.chat-markdown {
+  font-size: 0.875rem;
+  line-height: 1.65;
+  word-break: break-word;
+}
+
+.chat-markdown h1,
+.chat-markdown h2,
+.chat-markdown h3,
+.chat-markdown h4 {
+  font-weight: 700;
+  margin-top: 0.75em;
+  margin-bottom: 0.35em;
+  line-height: 1.35;
+  color: oklch(0.25 0.04 55);
+}
+
+.chat-markdown h1 { font-size: 1.25em; }
+.chat-markdown h2 { font-size: 1.125em; }
+.chat-markdown h3 { font-size: 1em; }
+.chat-markdown h4 { font-size: 0.9375em; }
+
+.chat-markdown p {
+  margin-top: 0.4em;
+  margin-bottom: 0.4em;
+}
+
+.chat-markdown p:first-child {
+  margin-top: 0;
+}
+
+.chat-markdown p:last-child {
+  margin-bottom: 0;
+}
+
+/* 列表 */
+.chat-markdown ul,
+.chat-markdown ol {
+  padding-left: 1.4em;
+  margin-top: 0.35em;
+  margin-bottom: 0.35em;
+}
+
+.chat-markdown ul {
+  list-style-type: disc;
+}
+
+.chat-markdown ol {
+  list-style-type: decimal;
+}
+
+.chat-markdown li {
+  margin-top: 0.15em;
+  margin-bottom: 0.15em;
+}
+
+.chat-markdown li > ul,
+.chat-markdown li > ol {
+  margin-top: 0.1em;
+  margin-bottom: 0.1em;
+}
+
+/* 行内代码 */
+.chat-markdown :not(pre) > code {
+  background: oklch(0.52 0.09 55 / 0.08);
+  color: oklch(0.42 0.09 55);
+  padding: 0.15em 0.35em;
+  border-radius: 0.3em;
+  font-size: 0.85em;
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* 代码块 */
+.chat-markdown pre {
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  border-radius: 0.6em;
+  overflow-x: auto;
+  font-size: 0.8em;
+}
+
+.chat-markdown pre code {
+  font-family: "JetBrains Mono", monospace;
+}
+
+/* 表格 */
+.chat-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 0.5em;
+  margin-bottom: 0.5em;
+  font-size: 0.85em;
+}
+
+.chat-markdown th {
+  background: oklch(0.52 0.09 55 / 0.08);
+  font-weight: 600;
+  text-align: left;
+  padding: 0.4em 0.6em;
+  border-bottom: 2px solid oklch(0.52 0.09 55 / 0.15);
+}
+
+.chat-markdown td {
+  padding: 0.35em 0.6em;
+  border-bottom: 1px solid oklch(0.90 0.015 85);
+}
+
+.chat-markdown tr:last-child td {
+  border-bottom: none;
+}
+
+/* 引用块 */
+.chat-markdown blockquote {
+  border-left: 3px solid oklch(0.52 0.09 55 / 0.4);
+  padding-left: 0.8em;
+  margin: 0.5em 0;
+  color: oklch(0.45 0.03 55);
+  font-style: italic;
+}
+
+/* 分割线 */
+.chat-markdown hr {
+  border: none;
+  border-top: 1px solid oklch(0.90 0.015 85);
+  margin: 0.75em 0;
+}
+
+/* 链接 */
+.chat-markdown a {
+  color: oklch(0.52 0.09 55);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.chat-markdown a:hover {
+  color: oklch(0.42 0.09 55);
+}
+
+/* 强调 */
+.chat-markdown strong {
+  font-weight: 700;
+  color: oklch(0.25 0.04 55);
+}
+
+/* KaTeX 数学公式样式调整 */
+.chat-markdown .katex-display {
+  margin: 0.6em 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 0.4em 0;
+}
+
+.chat-markdown .katex-display > .katex {
+  text-align: left;
+}
+
+.chat-markdown .katex {
+  font-size: 1em;
+}
+
+/* 行内公式不要太大 */
+.chat-markdown p .katex,
+.chat-markdown li .katex {
+  font-size: 1em;
+}
+
+/* 块级公式稍大一点 */
+.chat-markdown .katex-display .katex {
+  font-size: 1.1em;
+}
+
+/* 图片 */
+.chat-markdown img {
+  max-width: 100%;
+  border-radius: 0.5em;
+  margin: 0.4em 0;
 }

@@ -10,7 +10,7 @@ import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
 import Navbar from "@/components/Navbar";
 import { BEAR_IMAGES, BEAR_TIERS } from "@/lib/bearAssets";
-import { Streamdown } from "streamdown";
+import ChatMarkdown from "@/components/ChatMarkdown";
 import { toast } from "sonner";
 
 interface ChatMessage {
@@ -417,7 +417,7 @@ export default function Chat() {
                       style={msg.role === "user" ? { background: "oklch(0.52 0.09 55)" } : {}}
                     >
                       {msg.role === "assistant" ? (
-                        <Streamdown>{msg.content}</Streamdown>
+                        <ChatMarkdown>{msg.content}</ChatMarkdown>
                       ) : (
                         <div className="whitespace-pre-wrap">{msg.content}</div>
                       )}
@@ -437,7 +437,7 @@ export default function Chat() {
                   <img src={bearImage} alt={bear.bearName} className="w-9 h-9 rounded-full shrink-0" />
                   <div className="max-w-[70%] bg-white px-4 py-3 rounded-2xl rounded-bl-md border border-[oklch(0.52_0.09_55/0.1)] shadow-sm text-sm">
                     {streamContent ? (
-                      <Streamdown>{streamContent}</Streamdown>
+                      <ChatMarkdown isStreaming>{streamContent}</ChatMarkdown>
                     ) : (
                       <div className="flex gap-1.5">
                         {[0, 1, 2].map((i) => (

@@ -15,7 +15,7 @@ import { trpc } from "@/lib/trpc";
 import Navbar from "@/components/Navbar";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { Streamdown } from "streamdown";
+import ChatMarkdown from "@/components/ChatMarkdown";
 import { BEAR_IMAGES } from "@/lib/bearAssets";
 
 const SUBJECT_COLORS: Record<string, string> = {
@@ -535,7 +535,7 @@ function ChapterLearningView({
 
               {/* Knowledge Content */}
               <div className="prose prose-sm max-w-none mb-2">
-                <Streamdown>{currentPage.content}</Streamdown>
+                <ChatMarkdown>{currentPage.content}</ChatMarkdown>
               </div>
 
               {/* Quiz Section */}

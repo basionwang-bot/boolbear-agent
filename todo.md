@@ -198,3 +198,10 @@
 ## Bug Fixes (4)
 
 - [x] Bug: 微信浏览器兼容性问题持续存在（根因：已部署版本的构建产物包含 153 个未转换的 nullish coalescing ?? 实例。修复：确认 esbuild supported 标志生效使新构建产物完全干净；添加 index.html 内联 polyfill（globalThis/Object.hasOwn/Array.at/String.replaceAll/structuredClone 等）；增强 ErrorBoundary 显示中文错误信息和 UA 信息；main.tsx 添加 try-catch 防御初始化失败。108 个测试全部通过）
+
+## AI 对话界面 Markdown 和数学公式显示优化
+
+- [x] 添加 KaTeX 数学公式渲染支持（行内公式 $...$ 和块级公式 $$...$$）
+- [x] 优化 Markdown 内容显示样式（代码块、表格、列表等）
+- [x] 确保对话气泡中的 Markdown 排版美观
+- [x] 编写测试并保存 checkpoint（108 个测试全部通过）
