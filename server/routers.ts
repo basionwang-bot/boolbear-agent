@@ -15,6 +15,7 @@ import { analyzeExamPaper } from "./examAnalyzer";
 import { storagePut } from "./storage";
 import { aiConfigRouter } from "./aiConfigRouter";
 import { usageRouter } from "./usageRouter";
+import { classroomRouter } from "./classroomRouter";
 
 // ==================== AUTH ROUTER ====================
 
@@ -1510,6 +1511,7 @@ export const appRouter = router({
   exam: examRouter,
   aiConfig: aiConfigRouter,
   usage: usageRouter,
+  classroom: classroomRouter,
 });
 
 export type AppRouter = typeof appRouter;

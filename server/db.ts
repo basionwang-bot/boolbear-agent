@@ -1,6 +1,6 @@
 import { eq, desc, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, parentShareTokens, learningMaterials, generatedCourses, courseChapters, studentCourseProgress, chapterPages, pageQuestions, studentAnswers, examAnalyses, learningPathNodes, aiProviderConfigs, systemSettings, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint, type InsertParentShareToken, type InsertLearningMaterial, type InsertGeneratedCourse, type InsertCourseChapter, type InsertStudentCourseProgress, type InsertChapterPage, type InsertPageQuestion, type InsertStudentAnswer, type InsertExamAnalysis, type InsertLearningPathNode, type InsertAiProviderConfig, type AiProviderConfig, type SystemSetting } from "../drizzle/schema";
+import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, parentShareTokens, learningMaterials, generatedCourses, courseChapters, studentCourseProgress, chapterPages, pageQuestions, studentAnswers, examAnalyses, learningPathNodes, aiProviderConfigs, systemSettings, classrooms, classroomScenes, classroomMessages, studentClassroomProgress, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint, type InsertParentShareToken, type InsertLearningMaterial, type InsertGeneratedCourse, type InsertCourseChapter, type InsertStudentCourseProgress, type InsertChapterPage, type InsertPageQuestion, type InsertStudentAnswer, type InsertExamAnalysis, type InsertLearningPathNode, type InsertAiProviderConfig, type AiProviderConfig, type SystemSetting, type InsertClassroom, type InsertClassroomScene, type InsertClassroomMessage, type InsertStudentClassroomProgress } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1215,4 +1215,122 @@ export async function getAllSystemSettings(): Promise<SystemSetting[]> {
   const db = await getDb();
   if (!db) return [];
   return db.select().from(systemSettings);
+}
+
+
+// ==================== INTERACTIVE CLASSROOM QUERIES ====================
+
+export async function createClassroom(data: InsertClassroom) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(classrooms).values(data);
+  return result.insertId;
+}
+
+export async function getClassroomById(id: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const [row] = await db.select().from(classrooms).where(eq(classrooms.id, id));
+  return row || null;
+}
+
+export async function getClassroomsByUser(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(classrooms)
+    .where(eq(classrooms.userId, userId))
+    .orderBy(desc(classrooms.createdAt));
+}
+
+export async function updateClassroom(id: number, data: Partial<InsertClassroom>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(classrooms).set(data).where(eq(classrooms.id, id));
+}
+
+export async function deleteClassroom(id: number) {
+  const db = await getDb();
+  if (!db) return;
+  // Delete related data first
+  await db.delete(classroomMessages).where(eq(classroomMessages.classroomId, id));
+  await db.delete(classroomScenes).where(eq(classroomScenes.classroomId, id));
+  await db.delete(studentClassroomProgress).where(eq(studentClassroomProgress.classroomId, id));
+  await db.delete(classrooms).where(eq(classrooms.id, id));
+}
+
+// ─── Classroom Scenes ─────────────────────────────────────────────────
+
+export async function insertClassroomScenes(scenes: InsertClassroomScene[]) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  if (scenes.length === 0) return;
+  await db.insert(classroomScenes).values(scenes);
+}
+
+export async function getClassroomScenes(classroomId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(classroomScenes)
+    .where(eq(classroomScenes.classroomId, classroomId))
+    .orderBy(classroomScenes.sceneIndex);
+}
+
+export async function updateClassroomScene(id: number, data: Partial<InsertClassroomScene>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(classroomScenes).set(data).where(eq(classroomScenes.id, id));
+}
+
+// ─── Classroom Messages ───────────────────────────────────────────────
+
+export async function insertClassroomMessage(data: InsertClassroomMessage) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const [result] = await db.insert(classroomMessages).values(data);
+  return result.insertId;
+}
+
+export async function getClassroomMessagesByScene(classroomId: number, sceneId?: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const conditions = [eq(classroomMessages.classroomId, classroomId)];
+  if (sceneId !== undefined) {
+    conditions.push(eq(classroomMessages.sceneId, sceneId));
+  }
+  return db.select().from(classroomMessages)
+    .where(and(...conditions))
+    .orderBy(classroomMessages.createdAt);
+}
+
+// ─── Student Classroom Progress ───────────────────────────────────────
+
+export async function getOrCreateClassroomProgress(userId: number, classroomId: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  
+  const [existing] = await db.select().from(studentClassroomProgress)
+    .where(and(
+      eq(studentClassroomProgress.userId, userId),
+      eq(studentClassroomProgress.classroomId, classroomId),
+    ));
+  
+  if (existing) return existing;
+  
+  const [result] = await db.insert(studentClassroomProgress).values({
+    userId,
+    classroomId,
+    currentSceneIndex: 0,
+    timeSpentSeconds: 0,
+    status: "not_started",
+  });
+  
+  const [created] = await db.select().from(studentClassroomProgress)
+    .where(eq(studentClassroomProgress.id, result.insertId));
+  return created;
+}
+
+export async function updateClassroomProgress(id: number, data: Partial<InsertStudentClassroomProgress>) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(studentClassroomProgress).set(data).where(eq(studentClassroomProgress.id, id));
 }

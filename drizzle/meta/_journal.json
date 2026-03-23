@@ -99,6 +99,13 @@
       "when": 1774235036519,
       "tag": "0013_curvy_ink",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "5",
+      "when": 1774248627273,
+      "tag": "0014_equal_tarot",
+      "breakpoints": true
     }
   ]
 }

@@ -14,6 +14,8 @@ import AuthPage from "./pages/AuthPage";
 import Admin from "./pages/Admin";
 import ParentReport from "./pages/ParentReport";
 import Courses from "./pages/Courses";
+import ClassroomList from "./pages/ClassroomList";
+import ClassroomView from "./pages/ClassroomView";
 import ExamAnalysis from "./pages/ExamAnalysis";
 import ExamShareReport from "./pages/ExamShareReport";
 
@@ -30,6 +32,8 @@ function Router() {
       <Route path="/gallery" component={BearGallery} />
       <Route path="/admin" component={Admin} />
       <Route path="/courses" component={Courses} />
+      <Route path="/classroom" component={ClassroomList} />
+      <Route path="/classroom/:id" component={ClassroomView} />
       <Route path="/exam" component={ExamAnalysis} />
       <Route path="/exam/share/:token" component={ExamShareReport} />
       <Route path="/exam/:id" component={ExamAnalysis} />

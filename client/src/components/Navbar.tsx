@@ -17,7 +17,7 @@ import { BEAR_IMAGES } from "@/lib/bearAssets";
 const primaryLinks = [
   { href: "/", label: "首页", icon: Home },
   { href: "/chat", label: "聊天", icon: MessageCircle },
-  { href: "/courses", label: "课程", icon: GraduationCap },
+  { href: "/classroom", label: "课堂", icon: GraduationCap },
   { href: "/exam", label: "诊断", icon: FileSearch },
   { href: "/dashboard", label: "看板", icon: BarChart3 },
 ];
