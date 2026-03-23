@@ -2,10 +2,10 @@
  * 熊 Agent — 熊熊广场
  * 社交系统：用户列表 + 双排行榜 + 名片 + 聊天 + 好友/粉丝
  */
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import {
-  Trophy, Star, Loader2, Heart, Users, MessageCircle,
+  Trophy, Loader2, Heart, Users, MessageCircle,
   Search, UserPlus, Check, X, Bell, Edit3, Flame,
 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
@@ -35,7 +35,7 @@ export default function Square() {
   const [searchQuery, setSearchQuery] = useState("");
   const [activeTab, setActiveTab] = useState("experience");
   const [selectedUserId, setSelectedUserId] = useState<number | null>(null);
-  const [cardPosition, setCardPosition] = useState<{ top: number; left: number } | null>(null);
+  const [userCardOpen, setUserCardOpen] = useState(false);
   const [profileEditorOpen, setProfileEditorOpen] = useState(false);
   const [openChats, setOpenChats] = useState<ChatTarget[]>([]);
   const [showFriendRequests, setShowFriendRequests] = useState(false);
@@ -84,22 +84,21 @@ export default function Square() {
     setOpenChats(prev => prev.filter(c => c.id !== partnerId));
   }, []);
 
-  // User card
-  const handleUserClick = useCallback((userId: number, e: React.MouseEvent) => {
+  // User card - now uses Dialog, no positioning issues
+  const handleUserClick = useCallback((userId: number) => {
     if (userId === currentUser?.id) {
       setProfileEditorOpen(true);
       return;
     }
-    const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setCardPosition({ top: rect.bottom + 8, left: Math.min(rect.left, window.innerWidth - 300) });
     setSelectedUserId(userId);
+    setUserCardOpen(true);
   }, [currentUser?.id]);
 
   const pendingCount = pendingRequests.data?.length || 0;
   const unreadCount = unreadQuery.data || 0;
 
   return (
-    <div className="min-h-screen bg-background" onClick={() => setSelectedUserId(null)}>
+    <div className="min-h-screen bg-background">
       <Navbar />
 
       {/* Hero */}
@@ -136,7 +135,6 @@ export default function Square() {
                 size="sm"
                 className="relative rounded-xl h-9"
                 onClick={() => {
-                  // Open latest conversation
                   const latest = conversationsQuery.data?.[0];
                   if (latest) {
                     openChat(latest.partnerId, latest.partnerName);
@@ -238,17 +236,19 @@ export default function Square() {
             {(friendsQuery.data?.length || 0) > 0 && (
               <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bear-card p-4">
                 <h3 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "oklch(0.30 0.06 55)" }}>
-                  <Users className="w-4 h-4" style={{ color: "oklch(0.78 0.08 230)" }} /> 我的好友 ({friendsQuery.data?.length || 0})
+                  <Users className="w-4 h-4" style={{ color: "oklch(0.50 0.10 155)" }} /> 我的好友
                 </h3>
-                <div className="flex gap-3 overflow-x-auto pb-2">
+                <div className="flex gap-3 overflow-x-auto pb-2 scrollbar-thin">
                   {friendsQuery.data?.map(friend => (
                     <button
-                      key={friend.friendshipId}
-                      onClick={() => openChat(friend.friendId, friend.friendName)}
-                      className="flex flex-col items-center gap-1 shrink-0 hover:opacity-80 transition"
+                      key={friend.friendId}
+                      onClick={() => openChat(friend.friendId, friend.friendName || friend.friendUsername || "好友")}
+                      className="flex flex-col items-center gap-1 shrink-0 p-2 rounded-xl hover:bg-accent/50 transition min-w-[64px]"
                     >
-                      <div className="w-10 h-10 rounded-full bg-accent flex items-center justify-center text-lg">🐻</div>
-                      <span className="text-[10px] text-muted-foreground truncate w-12 text-center">{friend.friendName}</span>
+                      <div className="w-10 h-10 rounded-full bg-accent/50 flex items-center justify-center text-xl">
+                        🐻
+                      </div>
+                      <span className="text-[10px] font-medium truncate max-w-[56px]">{friend.friendName || friend.friendUsername}</span>
                     </button>
                   ))}
                 </div>
@@ -257,27 +257,24 @@ export default function Square() {
 
             {/* Recent Conversations */}
             {(conversationsQuery.data?.length || 0) > 0 && (
-              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="bear-card p-4">
+              <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} className="bear-card p-4">
                 <h3 className="font-bold text-sm mb-3 flex items-center gap-2" style={{ color: "oklch(0.30 0.06 55)" }}>
                   <MessageCircle className="w-4 h-4" style={{ color: "oklch(0.52 0.09 55)" }} /> 最近聊天
                 </h3>
                 <div className="space-y-1">
-                  {conversationsQuery.data?.slice(0, 5).map(conv => (
+                  {conversationsQuery.data?.map(conv => (
                     <button
                       key={conv.partnerId}
                       onClick={() => openChat(conv.partnerId, conv.partnerName)}
-                      className="w-full flex items-center gap-3 p-2.5 rounded-xl hover:bg-accent/50 transition text-left"
+                      className="flex items-center gap-3 p-2 rounded-xl hover:bg-accent/50 transition w-full text-left"
                     >
-                      <div className="w-9 h-9 rounded-full bg-accent flex items-center justify-center text-base shrink-0">🐻</div>
+                      <div className="w-9 h-9 rounded-full bg-accent/50 flex items-center justify-center text-lg shrink-0">
+                        🐻
+                      </div>
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between">
-                          <span className="font-bold text-sm truncate">{conv.partnerName}</span>
-                          <span className="text-[9px] text-muted-foreground shrink-0">
-                            {new Date(conv.lastMessageAt).toLocaleTimeString("zh-CN", { hour: "2-digit", minute: "2-digit" })}
-                          </span>
-                        </div>
-                        <p className="text-xs text-muted-foreground truncate">
-                          {conv.isLastMessageMine ? "我: " : ""}{conv.lastMessage}
+                        <p className="font-bold text-xs truncate">{conv.partnerName}</p>
+                        <p className="text-[10px] text-muted-foreground truncate">
+                          {conv.lastMessage}
                         </p>
                       </div>
                       {conv.unreadCount > 0 && (
@@ -318,7 +315,7 @@ export default function Square() {
                         key={u.id}
                         whileHover={{ scale: 1.03 }}
                         whileTap={{ scale: 0.97 }}
-                        onClick={(e) => handleUserClick(u.userId, e)}
+                        onClick={() => handleUserClick(u.userId)}
                         className="relative p-3 rounded-xl border text-center hover:shadow-md transition group"
                         style={{ borderColor: isMe ? "oklch(0.52 0.09 55 / 0.3)" : "oklch(0.52 0.09 55 / 0.08)" }}
                       >
@@ -328,7 +325,7 @@ export default function Square() {
                           </span>
                         )}
                         {/* Emoji avatar */}
-                        <div className="w-12 h-12 mx-auto rounded-full bg-accent/50 flex items-center justify-center text-2xl mb-2">
+                        <div className="w-12 h-12 mx-auto rounded-full bg-accent/50 flex items-center justify-center text-2xl mb-2 group-hover:ring-2 group-hover:ring-[oklch(0.52_0.09_55/0.3)] transition">
                           {u.emoji || "🐻"}
                         </div>
                         {/* Bear image */}
@@ -355,7 +352,12 @@ export default function Square() {
           <div className="lg:col-span-1 space-y-6">
             {/* My Card */}
             {myBearQuery.data && myProfileQuery.data && (
-              <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="bear-card p-4">
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="bear-card p-4 cursor-pointer hover:shadow-md transition"
+                onClick={() => setProfileEditorOpen(true)}
+              >
                 <div className="flex items-center gap-3">
                   <div className="w-14 h-14 rounded-full bg-accent/50 flex items-center justify-center text-3xl">
                     {myProfileQuery.data.emoji || "🐻"}
@@ -399,31 +401,43 @@ export default function Square() {
                         const tierIdx = TIER_INDEX[item.tier] ?? 0;
                         const tier = BEAR_TIERS[tierIdx];
                         const bearImg = BEAR_TYPE_IMAGES[item.bearType] || BEAR_IMAGES.grizzly;
-                        const isTop3 = i < 3;
+                        const isMe = item.userId === currentUser?.id;
 
                         return (
                           <motion.div
-                            key={`exp-${item.userId}`}
-                            initial={{ opacity: 0, x: 10 }}
+                            key={item.userId}
+                            initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.03 }}
-                            className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-accent/30 transition cursor-pointer"
-                            onClick={(e) => handleUserClick(item.userId, e)}
+                            className="flex items-center gap-2 p-2 rounded-xl hover:bg-accent/50 transition cursor-pointer"
+                            style={isMe ? { background: "oklch(0.52 0.09 55 / 0.06)" } : {}}
+                            onClick={() => handleUserClick(item.userId)}
                           >
-                            <span className={`w-6 text-center font-black text-xs ${isTop3 ? "" : "text-muted-foreground"}`}
-                              style={isTop3 ? { color: MEDAL_COLORS[i] } : {}}>
-                              {i + 1}
-                            </span>
-                            <img src={bearImg} alt={item.bearName} className="w-8 h-8 rounded-lg object-contain bg-white p-0.5 shadow-sm" />
+                            {/* Rank */}
+                            <div className="w-6 text-center shrink-0">
+                              {i < 3 ? (
+                                <span className="text-lg">
+                                  {i === 0 ? "🥇" : i === 1 ? "🥈" : "🥉"}
+                                </span>
+                              ) : (
+                                <span className="text-xs font-bold text-muted-foreground">{i + 1}</span>
+                              )}
+                            </div>
+                            {/* Bear */}
+                            <img src={bearImg} alt="" className="w-8 h-8 object-contain shrink-0" />
                             <div className="flex-1 min-w-0">
-                              <p className="font-bold text-xs truncate" style={{ color: "oklch(0.30 0.06 55)" }}>{item.bearName}</p>
+                              <p className="font-bold text-xs truncate" style={{ color: isMe ? "oklch(0.52 0.09 55)" : "oklch(0.30 0.06 55)" }}>
+                                {item.bearName} {isMe && "(我)"}
+                              </p>
                               <p className="text-[9px] text-muted-foreground truncate">{item.userName || item.username}</p>
                             </div>
                             <div className="text-right shrink-0">
-                              <p className="text-xs font-mono font-bold" style={{ color: "oklch(0.52 0.09 55)" }}>{item.experience}</p>
-                              <span className="px-1 py-0.5 rounded text-[8px] font-bold" style={{ background: tier.bgColor, color: tier.color }}>
+                              <span className="px-1.5 py-0.5 rounded text-[8px] font-bold" style={{ background: tier.bgColor, color: tier.color }}>
                                 {tier.rank}
                               </span>
+                              <p className="text-[9px] font-mono mt-0.5" style={{ color: "oklch(0.52 0.09 55)" }}>
+                                {item.experience} EXP
+                              </p>
                             </div>
                           </motion.div>
                         );
@@ -443,31 +457,41 @@ export default function Square() {
                   ) : (popLeaderboard.data?.length || 0) > 0 ? (
                     <div className="space-y-1.5">
                       {popLeaderboard.data?.map((item, i) => {
-                        const isTop3 = i < 3;
+                        const isMe = item.userId === currentUser?.id;
+                        const displayName = item.userName || item.username || "匿名";
+
                         return (
                           <motion.div
-                            key={`pop-${item.userId}`}
-                            initial={{ opacity: 0, x: 10 }}
+                            key={item.userId}
+                            initial={{ opacity: 0, x: 20 }}
                             animate={{ opacity: 1, x: 0 }}
                             transition={{ delay: i * 0.03 }}
-                            className="flex items-center gap-2.5 p-2 rounded-xl hover:bg-accent/30 transition cursor-pointer"
-                            onClick={(e) => handleUserClick(item.userId, e)}
+                            className="flex items-center gap-2 p-2 rounded-xl hover:bg-accent/50 transition cursor-pointer"
+                            style={isMe ? { background: "oklch(0.52 0.09 55 / 0.06)" } : {}}
+                            onClick={() => handleUserClick(item.userId)}
                           >
-                            <span className={`w-6 text-center font-black text-xs ${isTop3 ? "" : "text-muted-foreground"}`}
-                              style={isTop3 ? { color: MEDAL_COLORS[i] } : {}}>
-                              {i + 1}
-                            </span>
-                            <div className="w-8 h-8 rounded-full bg-accent/50 flex items-center justify-center text-base">
+                            {/* Rank */}
+                            <div className="w-6 text-center shrink-0">
+                              {i < 3 ? (
+                                <span className="text-lg">
+                                  {i === 0 ? "🔥" : i === 1 ? "✨" : "⭐"}
+                                </span>
+                              ) : (
+                                <span className="text-xs font-bold text-muted-foreground">{i + 1}</span>
+                              )}
+                            </div>
+                            {/* Emoji Avatar */}
+                            <div className="w-8 h-8 rounded-full bg-accent/50 flex items-center justify-center text-lg shrink-0">
                               {item.emoji || "🐻"}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-bold text-xs truncate" style={{ color: "oklch(0.30 0.06 55)" }}>
-                                {item.userName || item.username}
+                              <p className="font-bold text-xs truncate" style={{ color: isMe ? "oklch(0.52 0.09 55)" : "oklch(0.30 0.06 55)" }}>
+                                {displayName} {isMe && "(我)"}
                               </p>
                             </div>
-                            <div className="text-right shrink-0 flex items-center gap-1">
-                              <Heart className="w-3 h-3" style={{ color: "oklch(0.65 0.20 15)" }} />
-                              <span className="text-xs font-bold" style={{ color: "oklch(0.65 0.20 15)" }}>
+                            <div className="text-right shrink-0">
+                              <span className="text-[10px] font-bold flex items-center gap-0.5" style={{ color: "oklch(0.65 0.20 15)" }}>
+                                <Heart className="w-3 h-3" />
                                 {item.followerCount}
                               </span>
                             </div>
@@ -486,7 +510,7 @@ export default function Square() {
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }} className="bear-card p-4">
               <h3 className="font-bold text-xs mb-2" style={{ color: "oklch(0.30 0.06 55)" }}>社交指南</h3>
               <div className="space-y-1.5 text-[11px] text-muted-foreground">
-                <p>点击用户头像查看名片和加好友</p>
+                <p>点击用户头像查看名片，可以加好友和发私信</p>
                 <p>关注别人可以提升他的人气排名</p>
                 <p>和好友一对一私信聊天</p>
                 <p>编辑资料选择你喜欢的 emoji 头像</p>
@@ -496,22 +520,13 @@ export default function Square() {
         </div>
       </div>
 
-      {/* Floating User Card */}
-      <AnimatePresence>
-        {selectedUserId && cardPosition && (
-          <div
-            className="fixed z-50"
-            style={{ top: cardPosition.top, left: cardPosition.left }}
-            onClick={(e) => e.stopPropagation()}
-          >
-            <UserCard
-              userId={selectedUserId}
-              onClose={() => setSelectedUserId(null)}
-              onStartChat={(userId, userName) => openChat(userId, userName)}
-            />
-          </div>
-        )}
-      </AnimatePresence>
+      {/* User Card Dialog */}
+      <UserCard
+        userId={selectedUserId}
+        open={userCardOpen}
+        onOpenChange={setUserCardOpen}
+        onStartChat={(userId, userName, emoji) => openChat(userId, userName, emoji)}
+      />
 
       {/* Chat Windows */}
       <ChatManager openChats={openChats} onCloseChat={closeChat} />
