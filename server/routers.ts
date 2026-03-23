@@ -13,6 +13,7 @@ import { extractAndSaveKnowledgePoints } from "./knowledgeExtractor";
 import { generateCourseOutline, generateChapterContent, generateChapterPages, generatePageQuestions } from "./courseGenerator";
 import { analyzeExamPaper } from "./examAnalyzer";
 import { storagePut } from "./storage";
+import { aiConfigRouter } from "./aiConfigRouter";
 
 // ==================== AUTH ROUTER ====================
 
@@ -1494,6 +1495,7 @@ export const appRouter = router({
   material: materialRouter,
   course: courseRouter,
   exam: examRouter,
+  aiConfig: aiConfigRouter,
 });
 
 export type AppRouter = typeof appRouter;

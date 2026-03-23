@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { BEAR_TIERS } from "@/lib/bearAssets";
+import AiConfigPanel from "@/components/AiConfigPanel";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, RadarChart, Radar, PolarGrid,
@@ -47,7 +48,7 @@ const SUBJECT_COLORS: Record<string, string> = {
 
 const PIE_COLORS = ["#E74C3C", "#3498DB", "#2ECC71", "#9B59B6", "#F39C12", "#1ABC9C", "#E67E22", "#16A085", "#8E44AD", "#2C3E50"];
 
-type AdminTab = "manage" | "analytics" | "materials";
+type AdminTab = "manage" | "analytics" | "materials" | "aiconfig";
 
 export default function Admin() {
   const [, navigate] = useLocation();
@@ -433,6 +434,17 @@ export default function Admin() {
             style={activeTab === "materials" ? { background: "oklch(0.55 0.15 250)" } : {}}
           >
             <FolderOpen className="w-4 h-4" /> 资料与课程
+          </button>
+          <button
+            onClick={() => setActiveTab("aiconfig")}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              activeTab === "aiconfig"
+                ? "text-white shadow-lg"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+            style={activeTab === "aiconfig" ? { background: "oklch(0.55 0.15 330)" } : {}}
+          >
+            <Sparkles className="w-4 h-4" /> AI 服务配置
           </button>
         </div>
 
@@ -1239,6 +1251,11 @@ export default function Admin() {
               </>
             )}
           </motion.div>
+        )}
+
+        {/* ===================== AI CONFIG TAB ===================== */}
+        {activeTab === "aiconfig" && (
+          <AiConfigPanel />
         )}
       </div>
 

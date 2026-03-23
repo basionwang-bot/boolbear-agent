@@ -1,6 +1,6 @@
 import { eq, desc, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, parentShareTokens, learningMaterials, generatedCourses, courseChapters, studentCourseProgress, chapterPages, pageQuestions, studentAnswers, examAnalyses, learningPathNodes, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint, type InsertParentShareToken, type InsertLearningMaterial, type InsertGeneratedCourse, type InsertCourseChapter, type InsertStudentCourseProgress, type InsertChapterPage, type InsertPageQuestion, type InsertStudentAnswer, type InsertExamAnalysis, type InsertLearningPathNode } from "../drizzle/schema";
+import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, parentShareTokens, learningMaterials, generatedCourses, courseChapters, studentCourseProgress, chapterPages, pageQuestions, studentAnswers, examAnalyses, learningPathNodes, aiProviderConfigs, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint, type InsertParentShareToken, type InsertLearningMaterial, type InsertGeneratedCourse, type InsertCourseChapter, type InsertStudentCourseProgress, type InsertChapterPage, type InsertPageQuestion, type InsertStudentAnswer, type InsertExamAnalysis, type InsertLearningPathNode, type InsertAiProviderConfig, type AiProviderConfig } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1102,4 +1102,81 @@ export async function setExamShareToken(id: number, shareToken: string) {
   const db = await getDb();
   if (!db) return;
   await db.update(examAnalyses).set({ shareToken }).where(eq(examAnalyses.id, id));
+}
+
+
+// ==================== AI PROVIDER CONFIG QUERIES ====================
+
+export async function getAllAiProviderConfigs() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(aiProviderConfigs).orderBy(aiProviderConfigs.category, aiProviderConfigs.createdAt);
+}
+
+export async function getAiProviderConfigsByCategory(category: string) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(aiProviderConfigs)
+    .where(eq(aiProviderConfigs.category, category as any))
+    .orderBy(aiProviderConfigs.createdAt);
+}
+
+export async function getAiProviderConfigById(id: number) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(aiProviderConfigs).where(eq(aiProviderConfigs.id, id));
+  return rows[0] || undefined;
+}
+
+export async function getDefaultAiProviderConfig(category: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const rows = await db.select().from(aiProviderConfigs)
+    .where(and(
+      eq(aiProviderConfigs.category, category as any),
+      eq(aiProviderConfigs.isDefault, true),
+      eq(aiProviderConfigs.isActive, true),
+    ));
+  return rows[0] || undefined;
+}
+
+export async function createAiProviderConfig(data: InsertAiProviderConfig) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result = await db.insert(aiProviderConfigs).values(data);
+  return result[0].insertId;
+}
+
+export async function updateAiProviderConfig(id: number, data: Partial<InsertAiProviderConfig>) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(aiProviderConfigs).set(data).where(eq(aiProviderConfigs.id, id));
+}
+
+export async function deleteAiProviderConfig(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.delete(aiProviderConfigs).where(eq(aiProviderConfigs.id, id));
+}
+
+/** Clear isDefault for all providers in a category, then set the specified one as default */
+export async function setDefaultAiProvider(id: number, category: string) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // Clear all defaults in the category
+  await db.update(aiProviderConfigs)
+    .set({ isDefault: false })
+    .where(eq(aiProviderConfigs.category, category as any));
+  // Set the new default
+  await db.update(aiProviderConfigs)
+    .set({ isDefault: true })
+    .where(eq(aiProviderConfigs.id, id));
+}
+
+export async function updateAiProviderTestResult(id: number, success: boolean) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.update(aiProviderConfigs)
+    .set({ lastTestResult: success, lastTestedAt: new Date() })
+    .where(eq(aiProviderConfigs.id, id));
 }

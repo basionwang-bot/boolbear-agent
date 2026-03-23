@@ -1,0 +1,9 @@
+{
+  "query": "CREATE TABLE `ai_provider_configs` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`category` enum('llm','tts','asr','image','video','web_search') NOT NULL,\n\t`providerId` varchar(64) NOT NULL,\n\t`displayName` varchar(128) NOT NULL,\n\t`apiKeyEncrypted` text NOT NULL,\n\t`apiKeyIv` varchar(64) NOT NULL,\n\t`apiKeyTag` varchar(64) NOT NULL,\n\t`baseUrl` varchar(512),\n\t`models` json,\n\t`isDefault` boolean NOT NULL DEFAULT false,\n\t`isActive` boolean NOT NULL DEFAULT true,\n\t`createdBy` int NOT NULL,\n\t`lastTestResult` boolean,\n\t`lastTestedAt` timestamp,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `ai_provider_configs_id` PRIMARY KEY(`id`)\n);",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2XBg1BfGdTzNV6N.ded88a4a5b51 --database 4byKXnSfmNJ8D24Qt3bNEe --execute CREATE TABLE `ai_provider_configs` (\n\t`id` int AUTO_INCREMENT NOT NULL,\n\t`category` enum('llm','tts','asr','image','video','web_search') NOT NULL,\n\t`providerId` varchar(64) NOT NULL,\n\t`displayName` varchar(128) NOT NULL,\n\t`apiKeyEncrypted` text NOT NULL,\n\t`apiKeyIv` varchar(64) NOT NULL,\n\t`apiKeyTag` varchar(64) NOT NULL,\n\t`baseUrl` varchar(512),\n\t`models` json,\n\t`isDefault` boolean NOT NULL DEFAULT false,\n\t`isActive` boolean NOT NULL DEFAULT true,\n\t`createdBy` int NOT NULL,\n\t`lastTestResult` boolean,\n\t`lastTestedAt` timestamp,\n\t`createdAt` timestamp NOT NULL DEFAULT (now()),\n\t`updatedAt` timestamp NOT NULL DEFAULT (now()) ON UPDATE CURRENT_TIMESTAMP,\n\tCONSTRAINT `ai_provider_configs_id` PRIMARY KEY(`id`)\n);",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 4472
+}

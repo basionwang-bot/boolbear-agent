@@ -458,3 +458,43 @@ export const learningPathNodes = mysqlTable("learning_path_nodes", {
 
 export type LearningPathNode = typeof learningPathNodes.$inferSelect;
 export type InsertLearningPathNode = typeof learningPathNodes.$inferInsert;
+
+/**
+ * AI Provider Configurations table — stores API keys and settings for various AI services.
+ * Managed by admin. Categories: llm, tts, asr, image, video, web_search.
+ * API keys are stored encrypted (AES-256) in the database.
+ */
+export const aiProviderConfigs = mysqlTable("ai_provider_configs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Service category: llm, tts, asr, image, video, web_search */
+  category: mysqlEnum("category", ["llm", "tts", "asr", "image", "video", "web_search"]).notNull(),
+  /** Provider identifier, e.g. 'openai', 'anthropic', 'deepseek', 'kimi', 'doubao' */
+  providerId: varchar("providerId", { length: 64 }).notNull(),
+  /** Display name for the provider, e.g. 'OpenAI', 'DeepSeek' */
+  displayName: varchar("displayName", { length: 128 }).notNull(),
+  /** Encrypted API key (AES-256-GCM) */
+  apiKeyEncrypted: text("apiKeyEncrypted").notNull(),
+  /** Initialization vector for AES decryption (hex) */
+  apiKeyIv: varchar("apiKeyIv", { length: 64 }).notNull(),
+  /** Auth tag for AES-GCM (hex) */
+  apiKeyTag: varchar("apiKeyTag", { length: 64 }).notNull(),
+  /** Optional custom base URL (for proxies or self-hosted) */
+  baseUrl: varchar("baseUrl", { length: 512 }),
+  /** Available models (JSON array of strings), e.g. ["gpt-4o", "gpt-4o-mini"] */
+  models: json("models"),
+  /** Whether this provider is the default for its category */
+  isDefault: boolean("isDefault").default(false).notNull(),
+  /** Whether this provider is currently active/enabled */
+  isActive: boolean("isActive").default(true).notNull(),
+  /** Admin who configured this provider */
+  createdBy: int("createdBy").notNull(),
+  /** Last connection test result: null = never tested, true = success, false = failed */
+  lastTestResult: boolean("lastTestResult"),
+  /** Last connection test timestamp */
+  lastTestedAt: timestamp("lastTestedAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type AiProviderConfig = typeof aiProviderConfigs.$inferSelect;
+export type InsertAiProviderConfig = typeof aiProviderConfigs.$inferInsert;
