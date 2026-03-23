@@ -498,3 +498,22 @@ export const aiProviderConfigs = mysqlTable("ai_provider_configs", {
 
 export type AiProviderConfig = typeof aiProviderConfigs.$inferSelect;
 export type InsertAiProviderConfig = typeof aiProviderConfigs.$inferInsert;
+
+// ==================== SYSTEM SETTINGS ====================
+
+/** Key-value store for system-wide settings (e.g. chat LLM source toggle) */
+export const systemSettings = mysqlTable("system_settings", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Setting key, e.g. 'chat_llm_source' */
+  settingKey: varchar("settingKey", { length: 128 }).notNull().unique(),
+  /** Setting value (JSON-encoded for flexibility) */
+  settingValue: text("settingValue").notNull(),
+  /** Human-readable description */
+  description: varchar("description", { length: 512 }),
+  /** Last updated by admin */
+  updatedBy: int("updatedBy"),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type SystemSetting = typeof systemSettings.$inferSelect;
+export type InsertSystemSetting = typeof systemSettings.$inferInsert;

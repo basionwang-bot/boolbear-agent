@@ -1,0 +1,9 @@
+{
+  "query": "INSERT INTO system_settings (settingKey, settingValue, description) VALUES \n('chat_llm_source', '{\"source\":\"builtin\",\"providerId\":null}', '小熊对话 LLM 来源：builtin=内置 Manus LLM, custom=使用管理员配置的 API Key')\nON DUPLICATE KEY UPDATE settingKey=settingKey;",
+  "command": "mysql --batch --raw --column-names --default-character-set=utf8mb4 --host gateway04.us-east-1.prod.aws.tidbcloud.com --port 4000 --user 2XBg1BfGdTzNV6N.ded88a4a5b51 --database 4byKXnSfmNJ8D24Qt3bNEe --execute INSERT INTO system_settings (settingKey, settingValue, description) VALUES \n('chat_llm_source', '{\"source\":\"builtin\",\"providerId\":null}', '小熊对话 LLM 来源：builtin=内置 Manus LLM, custom=使用管理员配置的 API Key')\nON DUPLICATE KEY UPDATE settingKey=settingKey;",
+  "rows": [],
+  "messages": [],
+  "stdout": "",
+  "stderr": "",
+  "execution_time_ms": 1611
+}

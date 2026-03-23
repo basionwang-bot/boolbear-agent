@@ -85,6 +85,13 @@
       "when": 1774232284887,
       "tag": "0011_sloppy_stature",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1774233751736,
+      "tag": "0012_rare_talon",
+      "breakpoints": true
     }
   ]
 }

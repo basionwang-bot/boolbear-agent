@@ -8,7 +8,7 @@ import {
   Brain, Volume2, Image, Video, Mic, Search,
   Plus, Trash2, Check, X, Loader2, Zap, Star,
   Eye, EyeOff, Settings2, TestTube, ChevronDown,
-  AlertCircle, CheckCircle2
+  AlertCircle, CheckCircle2, ToggleLeft, ToggleRight
 } from "lucide-react";
 import { trpc } from "@/lib/trpc";
 import { Button } from "@/components/ui/button";
@@ -64,6 +64,7 @@ export default function AiConfigPanel() {
   // Queries
   const configsQuery = trpc.aiConfig.list.useQuery();
   const presetsQuery = trpc.aiConfig.presets.useQuery();
+  const chatLlmSourceQuery = trpc.aiConfig.getChatLlmSource.useQuery();
   const utils = trpc.useUtils();
 
   // Mutations
@@ -109,6 +110,20 @@ export default function AiConfigPanel() {
     },
   });
 
+  const setChatLlmSourceMutation = trpc.aiConfig.setChatLlmSource.useMutation({
+    onSuccess: () => {
+      utils.aiConfig.getChatLlmSource.invalidate();
+      toast.success("小熊对话 LLM 来源已更新");
+    },
+    onError: (err) => toast.error(`设置失败: ${err.message}`),
+  });
+
+  // Get LLM configs for the toggle dropdown
+  const llmConfigs = useMemo(() => {
+    if (!configsQuery.data) return [];
+    return configsQuery.data.filter(c => c.category === "llm" && c.isActive);
+  }, [configsQuery.data]);
+
   // Filter configs by active category
   const filteredConfigs = useMemo(() => {
     if (!configsQuery.data) return [];
@@ -120,9 +135,9 @@ export default function AiConfigPanel() {
     if (!presetsQuery.data) return [];
     const categoryMap: Record<Category, string[]> = {
       llm: ["openai", "anthropic", "deepseek", "kimi", "doubao", "qwen", "zhipu"],
-      tts: ["openai_tts", "minimax_tts"],
-      image: ["openai_image", "zhipu_image"],
-      video: ["zhipu_video"],
+      tts: ["openai_tts", "minimax_tts", "qwen_tts", "doubao_tts"],
+      image: ["openai_image", "zhipu_image", "doubao_image", "qwen_image"],
+      video: ["zhipu_video", "doubao_video", "qwen_video"],
       asr: [],
       web_search: [],
     };
@@ -522,16 +537,112 @@ export default function AiConfigPanel() {
       </AnimatePresence>
 
       {/* Tips */}
-      <div className="p-4 rounded-xl bg-muted/50 text-sm text-muted-foreground">
-        <p className="font-medium mb-2 flex items-center gap-1">
-          <Zap className="w-4 h-4" /> 使用说明
-        </p>
-        <ul className="space-y-1 ml-5 list-disc">
-          <li>API Key 使用 AES-256-GCM 加密存储，安全可靠</li>
-          <li>每个分类可以配置多个提供商，标记一个为"默认"</li>
-          <li>添加后可以点击"测试"按钮验证 API Key 是否有效</li>
+      {/* Chat LLM Source Toggle — only show on LLM tab */}
+      {activeCategory === "llm" && (
+        <div className="mt-6 p-5 rounded-xl border-2 border-dashed" style={{ borderColor: "oklch(0.55 0.15 250 / 0.3)" }}>
+          <div className="flex items-center gap-3 mb-4">
+            <div className="w-10 h-10 rounded-lg flex items-center justify-center" style={{ background: "oklch(0.55 0.15 250 / 0.1)" }}>
+              {chatLlmSourceQuery.data?.source === "custom" ? (
+                <ToggleRight className="w-5 h-5" style={{ color: "oklch(0.55 0.15 250)" }} />
+              ) : (
+                <ToggleLeft className="w-5 h-5" style={{ color: "oklch(0.55 0.15 250)" }} />
+              )}
+            </div>
+            <div>
+              <h3 className="font-bold" style={{ color: "oklch(0.35 0.06 55)" }}>小熊对话 LLM 来源</h3>
+              <p className="text-sm text-muted-foreground">选择小熊聊天使用内置 LLM 还是你配置的自定义 API Key</p>
+            </div>
+          </div>
+
+          <div className="flex gap-3">
+            {/* Builtin option */}
+            <button
+              onClick={() => setChatLlmSourceMutation.mutate({ source: "builtin", configId: null })}
+              className={`flex-1 p-4 rounded-xl border-2 transition-all text-left ${
+                chatLlmSourceQuery.data?.source !== "custom"
+                  ? "border-[oklch(0.55_0.15_250)] bg-[oklch(0.55_0.15_250_/_0.08)]"
+                  : "border-border hover:border-muted-foreground/30"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Zap className="w-4 h-4" style={{ color: "oklch(0.55 0.15 250)" }} />
+                <span className="font-semibold text-sm">内置 LLM</span>
+                {chatLlmSourceQuery.data?.source !== "custom" && (
+                  <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: "oklch(0.55 0.15 250)" }} />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">使用 Manus 平台内置的 AI 服务，无需配置</p>
+            </button>
+
+            {/* Custom option */}
+            <button
+              onClick={() => {
+                if (llmConfigs.length === 0) {
+                  toast.error("请先添加一个大语言模型配置");
+                  return;
+                }
+                // Use the first active LLM config by default
+                setChatLlmSourceMutation.mutate({ source: "custom", configId: llmConfigs[0].id });
+              }}
+              className={`flex-1 p-4 rounded-xl border-2 transition-all text-left ${
+                chatLlmSourceQuery.data?.source === "custom"
+                  ? "border-[oklch(0.55_0.15_250)] bg-[oklch(0.55_0.15_250_/_0.08)]"
+                  : "border-border hover:border-muted-foreground/30"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Star className="w-4 h-4" style={{ color: "oklch(0.60 0.18 30)" }} />
+                <span className="font-semibold text-sm">自定义 API Key</span>
+                {chatLlmSourceQuery.data?.source === "custom" && (
+                  <CheckCircle2 className="w-4 h-4 ml-auto" style={{ color: "oklch(0.55 0.15 250)" }} />
+                )}
+              </div>
+              <p className="text-xs text-muted-foreground">使用你配置的 LLM 服务（如 Kimi、DeepSeek）</p>
+            </button>
+          </div>
+
+          {/* Provider selector when custom is active */}
+          {chatLlmSourceQuery.data?.source === "custom" && llmConfigs.length > 0 && (
+            <div className="mt-3">
+              <label className="text-sm font-medium text-muted-foreground mb-1 block">选择 LLM 提供商</label>
+              <select
+                value={chatLlmSourceQuery.data.configId || ""}
+                onChange={(e) => {
+                  const configId = parseInt(e.target.value);
+                  if (!isNaN(configId)) {
+                    setChatLlmSourceMutation.mutate({ source: "custom", configId });
+                  }
+                }}
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-sm"
+              >
+                {llmConfigs.map(c => (
+                  <option key={c.id} value={c.id}>
+                    {c.displayName} ({Array.isArray(c.models) ? c.models[0] : ""}) {c.lastTestResult === true ? "✅" : c.lastTestResult === false ? "❌" : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {setChatLlmSourceMutation.isPending && (
+            <div className="mt-2 flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="w-3 h-3 animate-spin" /> 保存中...
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Tips */}
+      <div className="mt-8 p-4 rounded-xl bg-muted/50 text-sm text-muted-foreground">
+        <h4 className="font-semibold mb-2 flex items-center gap-2">
+          <Zap className="w-4 h-4" /> 使用提示
+        </h4>
+        <ul className="space-y-1 list-disc list-inside">
+          <li>每个分类可以配置多个提供商，标记一个为“默认”</li>
+          <li>添加后可以点击“测试”按钮验证 API Key 是否有效</li>
           <li>如果不配置外部 API Key，系统将使用内置的 AI 服务</li>
           <li>大语言模型配置用于课堂生成和多智能体对话</li>
+          <li>“小熊对话 LLM 来源”开关可以切换小熊聊天使用内置还是自定义 API Key</li>
         </ul>
       </div>
     </motion.div>

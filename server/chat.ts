@@ -1,6 +1,7 @@
 import { ENV } from "./_core/env";
 import * as db from "./db";
 import type { Bear } from "../drizzle/schema";
+import { decryptApiKey } from "./crypto";
 
 // ==================== TIER SYSTEM ====================
 
@@ -103,10 +104,44 @@ ${personalityPrompt}
 
 // ==================== STREAMING CHAT ====================
 
-const resolveApiUrl = () =>
+const resolveBuiltinApiUrl = () =>
   ENV.forgeApiUrl && ENV.forgeApiUrl.trim().length > 0
     ? `${ENV.forgeApiUrl.replace(/\/$/, "")}/v1/chat/completions`
     : "https://forge.manus.im/v1/chat/completions";
+
+/** Resolve the LLM endpoint based on system settings (builtin vs custom) */
+async function resolveLlmConfig(): Promise<{ apiUrl: string; apiKey: string; model: string }> {
+  // Check system setting for chat LLM source
+  const setting = await db.getSystemSetting("chat_llm_source");
+  if (setting) {
+    try {
+      const parsed = JSON.parse(setting.settingValue);
+      if (parsed.source === "custom" && parsed.configId) {
+        const config = await db.getAiProviderConfigById(parsed.configId);
+        if (config && config.isActive && config.category === "llm") {
+          const apiKey = decryptApiKey(config.apiKeyEncrypted, config.apiKeyIv, config.apiKeyTag);
+          const baseUrl = (config.baseUrl || "").replace(/\/$/, "");
+          const models = (config.models as string[] | null) || [];
+          const model = models[0] || "gpt-4o-mini";
+          return {
+            apiUrl: `${baseUrl}/chat/completions`,
+            apiKey,
+            model,
+          };
+        }
+      }
+    } catch {
+      // Fall through to builtin
+    }
+  }
+
+  // Default: use builtin Manus LLM
+  return {
+    apiUrl: resolveBuiltinApiUrl(),
+    apiKey: ENV.forgeApiKey || "",
+    model: "gemini-2.5-flash",
+  };
+}
 
 export async function streamChat(
   systemPrompt: string,
@@ -116,15 +151,14 @@ export async function streamChat(
   onError: (error: Error) => void
 ) {
   try {
-    const apiUrl = resolveApiUrl();
-    const apiKey = ENV.forgeApiKey;
+    const llmConfig = await resolveLlmConfig();
 
-    if (!apiKey) {
+    if (!llmConfig.apiKey) {
       throw new Error("API key not configured");
     }
 
     const payload = {
-      model: "gemini-2.5-flash",
+      model: llmConfig.model,
       messages: [
         { role: "system", content: systemPrompt },
         ...messages,
@@ -133,11 +167,11 @@ export async function streamChat(
       max_tokens: 2048,
     };
 
-    const response = await fetch(apiUrl, {
+    const response = await fetch(llmConfig.apiUrl, {
       method: "POST",
       headers: {
         "content-type": "application/json",
-        authorization: `Bearer ${apiKey}`,
+        authorization: `Bearer ${llmConfig.apiKey}`,
       },
       body: JSON.stringify(payload),
     });

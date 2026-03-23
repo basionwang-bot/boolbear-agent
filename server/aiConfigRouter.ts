@@ -21,11 +21,17 @@ const PROVIDER_PRESETS: Record<string, { displayName: string; baseUrl?: string; 
   // TTS providers
   openai_tts: { displayName: "OpenAI TTS", baseUrl: "https://api.openai.com/v1", models: ["tts-1", "tts-1-hd"] },
   minimax_tts: { displayName: "MiniMax TTS", baseUrl: "https://api.minimax.chat/v1", models: ["speech-01-turbo"] },
+  qwen_tts: { displayName: "通义千问 TTS (CosyVoice)", baseUrl: "https://dashscope.aliyuncs.com/api/v1/services/aigc/text2audio/text-to-audio", models: ["cosyvoice-v3-plus", "cosyvoice-v3-flash"] },
+  doubao_tts: { displayName: "豆包 TTS (字节跳动)", baseUrl: "https://openspeech.bytedance.com/api/v1/tts", models: ["zh_female_cancan", "zh_male_rap"] },
   // Image providers
   openai_image: { displayName: "OpenAI DALL-E", baseUrl: "https://api.openai.com/v1", models: ["dall-e-3", "dall-e-2"] },
   zhipu_image: { displayName: "智谱 CogView", baseUrl: "https://open.bigmodel.cn/api/paas/v4", models: ["cogview-3-plus"] },
+  doubao_image: { displayName: "豆包 Seedream (字节跳动)", baseUrl: "https://ark.cn-beijing.volces.com/api/v3", models: ["seedream-5.0-lite", "seedream-3.0"] },
+  qwen_image: { displayName: "通义万相 (阿里)", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", models: ["wanx-v1", "wanx2.1-t2i-turbo"] },
   // Video providers
   zhipu_video: { displayName: "智谱 CogVideo", baseUrl: "https://open.bigmodel.cn/api/paas/v4", models: ["cogvideox"] },
+  doubao_video: { displayName: "豆包 Seedance (字节跳动)", baseUrl: "https://ark.cn-beijing.volces.com/api/v3", models: ["seedance-2.0", "seedance-1.0-lite"] },
+  qwen_video: { displayName: "通义万相视频 (阿里)", baseUrl: "https://dashscope.aliyuncs.com/compatible-mode/v1", models: ["wanx2.1-t2v-turbo"] },
 };
 
 const categoryEnum = z.enum(["llm", "tts", "asr", "image", "video", "web_search"]);
@@ -48,6 +54,13 @@ const updateInput = z.object({
   models: z.array(z.string()).optional(),
   isDefault: z.boolean().optional(),
   isActive: z.boolean().optional(),
+});
+
+/** Schema for chat LLM source setting */
+const chatLlmSourceSchema = z.object({
+  source: z.enum(["builtin", "custom"]),
+  /** If source is 'custom', the ID of the ai_provider_config to use */
+  configId: z.number().nullable(),
 });
 
 export const aiConfigRouter = router({
@@ -158,6 +171,48 @@ export const aiConfigRouter = router({
         throw new TRPCError({ code: "NOT_FOUND", message: "配置不存在" });
       }
       await db.deleteAiProviderConfig(input.id);
+      return { success: true };
+    }),
+
+  /** Get the current chat LLM source setting */
+  getChatLlmSource: adminProcedure.query(async () => {
+    const setting = await db.getSystemSetting("chat_llm_source");
+    if (!setting) {
+      return { source: "builtin" as const, configId: null };
+    }
+    try {
+      const parsed = JSON.parse(setting.settingValue);
+      return { source: parsed.source || "builtin", configId: parsed.configId || null };
+    } catch {
+      return { source: "builtin" as const, configId: null };
+    }
+  }),
+
+  /** Update the chat LLM source setting */
+  setChatLlmSource: adminProcedure
+    .input(chatLlmSourceSchema)
+    .mutation(async ({ ctx, input }) => {
+      // If setting to custom, verify the config exists and is an active LLM provider
+      if (input.source === "custom" && input.configId) {
+        const config = await db.getAiProviderConfigById(input.configId);
+        if (!config) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "所选 LLM 配置不存在" });
+        }
+        if (config.category !== "llm") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "所选配置不是大语言模型类型" });
+        }
+        if (!config.isActive) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "所选配置未启用" });
+        }
+      }
+
+      await db.upsertSystemSetting(
+        "chat_llm_source",
+        JSON.stringify({ source: input.source, configId: input.configId }),
+        "小熊对话 LLM 来源",
+        ctx.user.id
+      );
+
       return { success: true };
     }),
 

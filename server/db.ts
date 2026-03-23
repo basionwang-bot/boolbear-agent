@@ -1,6 +1,6 @@
 import { eq, desc, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, parentShareTokens, learningMaterials, generatedCourses, courseChapters, studentCourseProgress, chapterPages, pageQuestions, studentAnswers, examAnalyses, learningPathNodes, aiProviderConfigs, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint, type InsertParentShareToken, type InsertLearningMaterial, type InsertGeneratedCourse, type InsertCourseChapter, type InsertStudentCourseProgress, type InsertChapterPage, type InsertPageQuestion, type InsertStudentAnswer, type InsertExamAnalysis, type InsertLearningPathNode, type InsertAiProviderConfig, type AiProviderConfig } from "../drizzle/schema";
+import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, parentShareTokens, learningMaterials, generatedCourses, courseChapters, studentCourseProgress, chapterPages, pageQuestions, studentAnswers, examAnalyses, learningPathNodes, aiProviderConfigs, systemSettings, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint, type InsertParentShareToken, type InsertLearningMaterial, type InsertGeneratedCourse, type InsertCourseChapter, type InsertStudentCourseProgress, type InsertChapterPage, type InsertPageQuestion, type InsertStudentAnswer, type InsertExamAnalysis, type InsertLearningPathNode, type InsertAiProviderConfig, type AiProviderConfig, type SystemSetting } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1179,4 +1179,27 @@ export async function updateAiProviderTestResult(id: number, success: boolean) {
   await db.update(aiProviderConfigs)
     .set({ lastTestResult: success, lastTestedAt: new Date() })
     .where(eq(aiProviderConfigs.id, id));
+}
+
+// ==================== SYSTEM SETTINGS QUERIES ====================
+
+export async function getSystemSetting(key: string): Promise<SystemSetting | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(systemSettings).where(eq(systemSettings.settingKey, key));
+  return rows[0] || null;
+}
+
+export async function upsertSystemSetting(key: string, value: string, description?: string, updatedBy?: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(systemSettings)
+    .values({ settingKey: key, settingValue: value, description: description || null, updatedBy: updatedBy || null })
+    .onDuplicateKeyUpdate({ set: { settingValue: value, updatedBy: updatedBy || null } });
+}
+
+export async function getAllSystemSettings(): Promise<SystemSetting[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(systemSettings);
 }
