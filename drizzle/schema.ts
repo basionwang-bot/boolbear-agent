@@ -694,3 +694,88 @@ export const studentClassroomProgress = mysqlTable("student_classroom_progress",
 
 export type StudentClassroomProgress = typeof studentClassroomProgress.$inferSelect;
 export type InsertStudentClassroomProgress = typeof studentClassroomProgress.$inferInsert;
+
+// ═══════════════════════════════════════════════════════════════════════
+// Social System — Followers, Friendships, Direct Messages
+// ═══════════════════════════════════════════════════════════════════════
+
+/**
+ * User profiles — extended social info for the user.
+ * Separated from core users table to avoid migration conflicts.
+ */
+export const userProfiles = mysqlTable("user_profiles", {
+  id: int("id").autoincrement().primaryKey(),
+  /** User ID (1:1 with users table) */
+  userId: int("userId").notNull().unique(),
+  /** Emoji avatar for social display */
+  emoji: varchar("emoji", { length: 10 }).default("🐻"),
+  /** Personal bio / introduction */
+  bio: text("bio"),
+  /** Cached follower count for performance */
+  followerCount: int("followerCount").default(0).notNull(),
+  /** Cached following count for performance */
+  followingCount: int("followingCount").default(0).notNull(),
+  /** Cached friend count for performance */
+  friendCount: int("friendCount").default(0).notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type UserProfile = typeof userProfiles.$inferSelect;
+export type InsertUserProfile = typeof userProfiles.$inferInsert;
+
+/**
+ * Followers table — unidirectional follow relationship.
+ * userId is the person being followed, followerId is the person following.
+ */
+export const followers = mysqlTable("followers", {
+  id: int("id").autoincrement().primaryKey(),
+  /** The user being followed */
+  userId: int("userId").notNull(),
+  /** The user who is following */
+  followerId: int("followerId").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type Follower = typeof followers.$inferSelect;
+export type InsertFollower = typeof followers.$inferInsert;
+
+/**
+ * Friendships table — bidirectional friend relationship with approval flow.
+ * userId sends the request, friendId receives it.
+ */
+export const friendships = mysqlTable("friendships", {
+  id: int("id").autoincrement().primaryKey(),
+  /** User who sent the friend request */
+  userId: int("userId").notNull(),
+  /** User who received the friend request */
+  friendId: int("friendId").notNull(),
+  /** Request status: pending (awaiting approval) or accepted */
+  status: mysqlEnum("status", ["pending", "accepted"]).default("pending").notNull(),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+});
+
+export type Friendship = typeof friendships.$inferSelect;
+export type InsertFriendship = typeof friendships.$inferInsert;
+
+/**
+ * Direct messages table — one-to-one private messaging between users.
+ */
+export const directMessages = mysqlTable("direct_messages", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Sender user ID */
+  senderId: int("senderId").notNull(),
+  /** Receiver user ID */
+  receiverId: int("receiverId").notNull(),
+  /** Message content */
+  content: text("content").notNull(),
+  /** Whether the receiver has read this message */
+  isRead: boolean("isRead").default(false).notNull(),
+  /** When the message was read */
+  readAt: timestamp("readAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type DirectMessage = typeof directMessages.$inferSelect;
+export type InsertDirectMessage = typeof directMessages.$inferInsert;

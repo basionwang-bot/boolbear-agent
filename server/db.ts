@@ -1,6 +1,6 @@
 import { eq, desc, and, sql } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
-import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, parentShareTokens, learningMaterials, generatedCourses, courseChapters, studentCourseProgress, chapterPages, pageQuestions, studentAnswers, examAnalyses, learningPathNodes, aiProviderConfigs, systemSettings, classrooms, classroomScenes, classroomMessages, studentClassroomProgress, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint, type InsertParentShareToken, type InsertLearningMaterial, type InsertGeneratedCourse, type InsertCourseChapter, type InsertStudentCourseProgress, type InsertChapterPage, type InsertPageQuestion, type InsertStudentAnswer, type InsertExamAnalysis, type InsertLearningPathNode, type InsertAiProviderConfig, type AiProviderConfig, type SystemSetting, type InsertClassroom, type InsertClassroomScene, type InsertClassroomMessage, type InsertStudentClassroomProgress } from "../drizzle/schema";
+import { type InsertUser, users, classes, bears, conversations, messages, knowledgePoints, parentShareTokens, learningMaterials, generatedCourses, courseChapters, studentCourseProgress, chapterPages, pageQuestions, studentAnswers, examAnalyses, learningPathNodes, aiProviderConfigs, systemSettings, classrooms, classroomScenes, classroomMessages, studentClassroomProgress, userProfiles, followers, friendships, directMessages, type InsertClass, type InsertBear, type InsertConversation, type InsertMessage, type InsertKnowledgePoint, type InsertParentShareToken, type InsertLearningMaterial, type InsertGeneratedCourse, type InsertCourseChapter, type InsertStudentCourseProgress, type InsertChapterPage, type InsertPageQuestion, type InsertStudentAnswer, type InsertExamAnalysis, type InsertLearningPathNode, type InsertAiProviderConfig, type AiProviderConfig, type SystemSetting, type InsertClassroom, type InsertClassroomScene, type InsertClassroomMessage, type InsertStudentClassroomProgress, type InsertUserProfile, type InsertFollower, type InsertFriendship, type InsertDirectMessage } from "../drizzle/schema";
 import { ENV } from './_core/env';
 
 let _db: ReturnType<typeof drizzle> | null = null;
@@ -1333,4 +1333,432 @@ export async function updateClassroomProgress(id: number, data: Partial<InsertSt
   const db = await getDb();
   if (!db) return;
   await db.update(studentClassroomProgress).set(data).where(eq(studentClassroomProgress.id, id));
+}
+
+
+// ═══════════════════════════════════════════════════════════════════════
+// SOCIAL SYSTEM — User Profiles, Followers, Friendships, Direct Messages
+// ═══════════════════════════════════════════════════════════════════════
+
+// ─── User Profiles ───────────────────────────────────────────────────
+
+export async function getOrCreateProfile(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const existing = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1);
+  if (existing.length > 0) return existing[0];
+  await db.insert(userProfiles).values({ userId });
+  const created = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1);
+  return created[0] || null;
+}
+
+export async function updateProfile(userId: number, data: { emoji?: string; bio?: string }) {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1);
+  if (existing.length === 0) {
+    await db.insert(userProfiles).values({ userId, ...data });
+  } else {
+    await db.update(userProfiles).set(data).where(eq(userProfiles.userId, userId));
+  }
+}
+
+export async function getProfileByUserId(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(userProfiles).where(eq(userProfiles.userId, userId)).limit(1);
+  return result[0] || null;
+}
+
+// ─── Followers ───────────────────────────────────────────────────────
+
+export async function followUser(followerId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  // Check if already following
+  const existing = await db.select().from(followers)
+    .where(and(eq(followers.userId, userId), eq(followers.followerId, followerId)))
+    .limit(1);
+  if (existing.length > 0) return; // Already following
+
+  await db.insert(followers).values({ userId, followerId });
+  // Update cached counts
+  await db.update(userProfiles).set({
+    followerCount: sql`${userProfiles.followerCount} + 1`,
+  }).where(eq(userProfiles.userId, userId));
+  await db.update(userProfiles).set({
+    followingCount: sql`${userProfiles.followingCount} + 1`,
+  }).where(eq(userProfiles.userId, followerId));
+}
+
+export async function unfollowUser(followerId: number, userId: number) {
+  const db = await getDb();
+  if (!db) return;
+  const existing = await db.select().from(followers)
+    .where(and(eq(followers.userId, userId), eq(followers.followerId, followerId)))
+    .limit(1);
+  if (existing.length === 0) return; // Not following
+
+  await db.delete(followers).where(
+    and(eq(followers.userId, userId), eq(followers.followerId, followerId))
+  );
+  // Update cached counts
+  await db.update(userProfiles).set({
+    followerCount: sql`GREATEST(${userProfiles.followerCount} - 1, 0)`,
+  }).where(eq(userProfiles.userId, userId));
+  await db.update(userProfiles).set({
+    followingCount: sql`GREATEST(${userProfiles.followingCount} - 1, 0)`,
+  }).where(eq(userProfiles.userId, followerId));
+}
+
+export async function isFollowing(followerId: number, userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db.select().from(followers)
+    .where(and(eq(followers.userId, userId), eq(followers.followerId, followerId)))
+    .limit(1);
+  return result.length > 0;
+}
+
+export async function getFollowers(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: followers.id,
+    followerId: followers.followerId,
+    followerName: users.name,
+    followerUsername: users.username,
+    createdAt: followers.createdAt,
+  }).from(followers)
+    .innerJoin(users, eq(followers.followerId, users.id))
+    .where(eq(followers.userId, userId))
+    .orderBy(desc(followers.createdAt));
+}
+
+export async function getFollowing(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: followers.id,
+    userId: followers.userId,
+    userName: users.name,
+    userUsername: users.username,
+    createdAt: followers.createdAt,
+  }).from(followers)
+    .innerJoin(users, eq(followers.userId, users.id))
+    .where(eq(followers.followerId, userId))
+    .orderBy(desc(followers.createdAt));
+}
+
+// ─── Friendships ─────────────────────────────────────────────────────
+
+export async function sendFriendRequest(userId: number, friendId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  // Check if request already exists (either direction)
+  const existing = await db.select().from(friendships)
+    .where(
+      sql`(${friendships.userId} = ${userId} AND ${friendships.friendId} = ${friendId})
+       OR (${friendships.userId} = ${friendId} AND ${friendships.friendId} = ${userId})`
+    )
+    .limit(1);
+  if (existing.length > 0) return existing[0]; // Already exists
+
+  const result = await db.insert(friendships).values({ userId, friendId, status: "pending" });
+  return { id: Number(result[0].insertId), userId, friendId, status: "pending" as const };
+}
+
+export async function acceptFriendRequest(requestId: number, acceptingUserId: number) {
+  const db = await getDb();
+  if (!db) return false;
+  // Verify the request is addressed to this user
+  const request = await db.select().from(friendships).where(eq(friendships.id, requestId)).limit(1);
+  if (request.length === 0 || request[0].friendId !== acceptingUserId || request[0].status !== "pending") {
+    return false;
+  }
+  await db.update(friendships).set({ status: "accepted" }).where(eq(friendships.id, requestId));
+  // Update cached friend counts for both users
+  const senderId = request[0].userId;
+  await db.update(userProfiles).set({
+    friendCount: sql`${userProfiles.friendCount} + 1`,
+  }).where(eq(userProfiles.userId, senderId));
+  await db.update(userProfiles).set({
+    friendCount: sql`${userProfiles.friendCount} + 1`,
+  }).where(eq(userProfiles.userId, acceptingUserId));
+  return true;
+}
+
+export async function rejectFriendRequest(requestId: number, rejectingUserId: number) {
+  const db = await getDb();
+  if (!db) return false;
+  const request = await db.select().from(friendships).where(eq(friendships.id, requestId)).limit(1);
+  if (request.length === 0 || request[0].friendId !== rejectingUserId || request[0].status !== "pending") {
+    return false;
+  }
+  await db.delete(friendships).where(eq(friendships.id, requestId));
+  return true;
+}
+
+export async function removeFriend(userId: number, friendId: number) {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db.delete(friendships).where(
+    sql`((${friendships.userId} = ${userId} AND ${friendships.friendId} = ${friendId})
+      OR (${friendships.userId} = ${friendId} AND ${friendships.friendId} = ${userId}))
+      AND ${friendships.status} = 'accepted'`
+  );
+  if (!result[0].affectedRows) return false;
+  // Update cached friend counts
+  await db.update(userProfiles).set({
+    friendCount: sql`GREATEST(${userProfiles.friendCount} - 1, 0)`,
+  }).where(eq(userProfiles.userId, userId));
+  await db.update(userProfiles).set({
+    friendCount: sql`GREATEST(${userProfiles.friendCount} - 1, 0)`,
+  }).where(eq(userProfiles.userId, friendId));
+  return true;
+}
+
+export async function getFriendsList(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  // Friends where user is either userId or friendId
+  const results = await db.select({
+    friendshipId: friendships.id,
+    friendUserId: friendships.userId,
+    friendFriendId: friendships.friendId,
+    status: friendships.status,
+    createdAt: friendships.createdAt,
+  }).from(friendships)
+    .where(
+      and(
+        sql`(${friendships.userId} = ${userId} OR ${friendships.friendId} = ${userId})`,
+        eq(friendships.status, "accepted")
+      )
+    )
+    .orderBy(desc(friendships.createdAt));
+
+  // Resolve friend user IDs
+  const friendUserIds = results.map(r => r.friendUserId === userId ? r.friendFriendId : r.friendUserId);
+  if (friendUserIds.length === 0) return [];
+
+  const friendUsers = await db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+  }).from(users).where(sql`${users.id} IN (${sql.join(friendUserIds.map(id => sql`${id}`), sql`, `)})`);
+
+  return results.map(r => {
+    const fId = r.friendUserId === userId ? r.friendFriendId : r.friendUserId;
+    const fUser = friendUsers.find(u => u.id === fId);
+    return {
+      friendshipId: r.friendshipId,
+      friendId: fId,
+      friendName: fUser?.name || fUser?.username || "未知用户",
+      friendUsername: fUser?.username,
+      createdAt: r.createdAt,
+    };
+  });
+}
+
+export async function getPendingFriendRequests(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: friendships.id,
+    userId: friendships.userId,
+    senderName: users.name,
+    senderUsername: users.username,
+    createdAt: friendships.createdAt,
+  }).from(friendships)
+    .innerJoin(users, eq(friendships.userId, users.id))
+    .where(and(eq(friendships.friendId, userId), eq(friendships.status, "pending")))
+    .orderBy(desc(friendships.createdAt));
+}
+
+export async function getFriendshipStatus(userId: number, otherUserId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.select().from(friendships)
+    .where(
+      sql`(${friendships.userId} = ${userId} AND ${friendships.friendId} = ${otherUserId})
+       OR (${friendships.userId} = ${otherUserId} AND ${friendships.friendId} = ${userId})`
+    )
+    .limit(1);
+  return result[0] || null;
+}
+
+// ─── Direct Messages ─────────────────────────────────────────────────
+
+export async function sendDirectMessage(senderId: number, receiverId: number, content: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const result = await db.insert(directMessages).values({ senderId, receiverId, content });
+  return { id: Number(result[0].insertId), senderId, receiverId, content };
+}
+
+export async function getDirectMessages(userId1: number, userId2: number, limit: number = 50, offset: number = 0) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(directMessages)
+    .where(
+      sql`(${directMessages.senderId} = ${userId1} AND ${directMessages.receiverId} = ${userId2})
+       OR (${directMessages.senderId} = ${userId2} AND ${directMessages.receiverId} = ${userId1})`
+    )
+    .orderBy(desc(directMessages.createdAt))
+    .limit(limit)
+    .offset(offset);
+}
+
+export async function markMessagesAsRead(receiverId: number, senderId: number) {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(directMessages).set({ isRead: true, readAt: new Date() })
+    .where(
+      and(
+        eq(directMessages.senderId, senderId),
+        eq(directMessages.receiverId, receiverId),
+        eq(directMessages.isRead, false)
+      )
+    );
+}
+
+export async function getUnreadMessageCount(userId: number) {
+  const db = await getDb();
+  if (!db) return 0;
+  const result = await db.select({
+    count: sql<number>`COUNT(*)`,
+  }).from(directMessages)
+    .where(and(eq(directMessages.receiverId, userId), eq(directMessages.isRead, false)));
+  return result[0]?.count || 0;
+}
+
+export async function getUnreadCountBySender(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    senderId: directMessages.senderId,
+    count: sql<number>`COUNT(*)`,
+  }).from(directMessages)
+    .where(and(eq(directMessages.receiverId, userId), eq(directMessages.isRead, false)))
+    .groupBy(directMessages.senderId);
+}
+
+export async function getConversationList(userId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  // Get the latest message for each conversation partner
+  const rawMessages = await db.select().from(directMessages)
+    .where(sql`${directMessages.senderId} = ${userId} OR ${directMessages.receiverId} = ${userId}`)
+    .orderBy(desc(directMessages.createdAt));
+
+  // Group by conversation partner
+  const partnerMap = new Map<number, typeof rawMessages[0]>();
+  for (const msg of rawMessages) {
+    const partnerId = msg.senderId === userId ? msg.receiverId : msg.senderId;
+    if (!partnerMap.has(partnerId)) {
+      partnerMap.set(partnerId, msg);
+    }
+  }
+
+  // Get partner info
+  const partnerIds = Array.from(partnerMap.keys());
+  if (partnerIds.length === 0) return [];
+
+  const partners = await db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+  }).from(users).where(sql`${users.id} IN (${sql.join(partnerIds.map(id => sql`${id}`), sql`, `)})`);
+
+  // Get unread counts
+  const unreadCounts = await getUnreadCountBySender(userId);
+  const unreadMap = new Map(unreadCounts.map(u => [u.senderId, u.count]));
+
+  return partnerIds.map(partnerId => {
+    const lastMsg = partnerMap.get(partnerId)!;
+    const partner = partners.find(p => p.id === partnerId);
+    return {
+      partnerId,
+      partnerName: partner?.name || partner?.username || "未知用户",
+      partnerUsername: partner?.username,
+      lastMessage: lastMsg.content.slice(0, 100),
+      lastMessageAt: lastMsg.createdAt,
+      unreadCount: unreadMap.get(partnerId) || 0,
+      isLastMessageMine: lastMsg.senderId === userId,
+    };
+  }).sort((a, b) => new Date(b.lastMessageAt).getTime() - new Date(a.lastMessageAt).getTime());
+}
+
+// ─── Leaderboards ────────────────────────────────────────────────────
+
+export async function getExperienceLeaderboard(limit: number = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    userId: bears.userId,
+    bearName: bears.bearName,
+    bearType: bears.bearType,
+    tier: bears.tier,
+    level: bears.level,
+    experience: bears.experience,
+    userName: users.name,
+    username: users.username,
+  }).from(bears)
+    .innerJoin(users, eq(bears.userId, users.id))
+    .orderBy(desc(bears.experience))
+    .limit(limit);
+}
+
+export async function getPopularityLeaderboard(limit: number = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    userId: userProfiles.userId,
+    followerCount: userProfiles.followerCount,
+    emoji: userProfiles.emoji,
+    userName: users.name,
+    username: users.username,
+  }).from(userProfiles)
+    .innerJoin(users, eq(userProfiles.userId, users.id))
+    .orderBy(desc(userProfiles.followerCount))
+    .limit(limit);
+}
+
+// ─── User Card / Profile Info ────────────────────────────────────────
+
+export async function getUserCardInfo(userId: number) {
+  const db = await getDb();
+  if (!db) return null;
+  const user = await db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+  }).from(users).where(eq(users.id, userId)).limit(1);
+  if (user.length === 0) return null;
+
+  const profile = await getOrCreateProfile(userId);
+  const bear = await db.select().from(bears).where(eq(bears.userId, userId)).limit(1);
+
+  return {
+    user: user[0],
+    profile,
+    bear: bear[0] || null,
+  };
+}
+
+export async function searchUsers(query: string, currentUserId: number, limit: number = 20) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select({
+    id: users.id,
+    name: users.name,
+    username: users.username,
+  }).from(users)
+    .where(
+      and(
+        sql`${users.id} != ${currentUserId}`,
+        sql`(${users.name} LIKE ${`%${query}%`} OR ${users.username} LIKE ${`%${query}%`})`
+      )
+    )
+    .limit(limit);
 }

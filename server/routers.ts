@@ -16,6 +16,7 @@ import { storagePut } from "./storage";
 import { aiConfigRouter } from "./aiConfigRouter";
 import { usageRouter } from "./usageRouter";
 import { classroomRouter } from "./classroomRouter";
+import { socialRouter } from "./socialRouter";
 
 // ==================== AUTH ROUTER ====================
 
@@ -1512,6 +1513,7 @@ export const appRouter = router({
   aiConfig: aiConfigRouter,
   usage: usageRouter,
   classroom: classroomRouter,
+  social: socialRouter,
 });
 
 export type AppRouter = typeof appRouter;
