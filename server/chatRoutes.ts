@@ -126,7 +126,8 @@ chatRouter.post("/api/chat/stream", async (req: Request, res: Response) => {
         console.error("[Chat] Stream error:", error);
         res.write(`data: ${JSON.stringify({ type: "error", message: error.message })}\n\n`);
         res.end();
-      }
+      },
+      user.id
     );
   } catch (error) {
     console.error("[Chat] Route error:", error);

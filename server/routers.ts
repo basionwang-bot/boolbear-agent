@@ -14,6 +14,7 @@ import { generateCourseOutline, generateChapterContent, generateChapterPages, ge
 import { analyzeExamPaper } from "./examAnalyzer";
 import { storagePut } from "./storage";
 import { aiConfigRouter } from "./aiConfigRouter";
+import { usageRouter } from "./usageRouter";
 
 // ==================== AUTH ROUTER ====================
 
@@ -1496,6 +1497,7 @@ export const appRouter = router({
   course: courseRouter,
   exam: examRouter,
   aiConfig: aiConfigRouter,
+  usage: usageRouter,
 });
 
 export type AppRouter = typeof appRouter;

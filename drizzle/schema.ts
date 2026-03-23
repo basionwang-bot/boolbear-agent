@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, bigint, json, boolean } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, bigint, json, boolean, decimal } from "drizzle-orm/mysql-core";
 
 /**
  * Core user table backing auth flow.
@@ -517,3 +517,40 @@ export const systemSettings = mysqlTable("system_settings", {
 
 export type SystemSetting = typeof systemSettings.$inferSelect;
 export type InsertSystemSetting = typeof systemSettings.$inferInsert;
+
+// ==================== API USAGE LOGS ====================
+/** Tracks every API call for usage monitoring and cost estimation */
+export const apiUsageLogs = mysqlTable("api_usage_logs", {
+  id: int("id").autoincrement().primaryKey(),
+  /** Reference to ai_provider_configs.id (null = builtin) */
+  configId: int("configId"),
+  /** Provider name for display (e.g. 'Kimi', 'DeepSeek', 'builtin') */
+  providerName: varchar("providerName", { length: 128 }).notNull(),
+  /** Category: llm, tts, image, video, stt, search */
+  category: varchar("category", { length: 32 }).notNull(),
+  /** Model used (e.g. 'moonshot-v1-8k', 'gpt-4o') */
+  model: varchar("model", { length: 128 }),
+  /** What triggered this call: 'chat', 'course_generate', 'exam_analysis', 'knowledge_extract' */
+  caller: varchar("caller", { length: 64 }).notNull(),
+  /** User who triggered the call (null for system calls) */
+  userId: int("userId"),
+  /** Input tokens (for LLM) */
+  inputTokens: int("inputTokens").default(0),
+  /** Output tokens (for LLM) */
+  outputTokens: int("outputTokens").default(0),
+  /** Total tokens */
+  totalTokens: int("totalTokens").default(0),
+  /** Estimated cost in CNY (yuan) */
+  estimatedCostCny: decimal("estimatedCostCny", { precision: 10, scale: 6 }).default("0"),
+  /** Duration in milliseconds */
+  durationMs: int("durationMs"),
+  /** Whether the call succeeded */
+  success: boolean("success").default(true).notNull(),
+  /** Error message if failed */
+  errorMessage: text("errorMessage"),
+  /** Additional metadata (JSON) */
+  metadata: text("metadata"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+export type ApiUsageLog = typeof apiUsageLogs.$inferSelect;
+export type InsertApiUsageLog = typeof apiUsageLogs.$inferInsert;

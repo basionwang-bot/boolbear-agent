@@ -4,6 +4,7 @@
  */
 import { invokeLLM } from "./_core/llm";
 import * as db from "./db";
+import { trackUsage } from "./usageTracker";
 
 export interface ExtractedKnowledgePoint {
   name: string;
@@ -80,6 +81,20 @@ export async function extractKnowledgePoints(
       },
     });
 
+    // Track usage
+    const usage = result.usage;
+    trackUsage({
+      providerName: "builtin",
+      category: "llm",
+      model: result.model || "gemini-2.5-flash",
+      caller: "knowledge_extract",
+      userId,
+      inputTokens: usage?.prompt_tokens || 0,
+      outputTokens: usage?.completion_tokens || 0,
+      totalTokens: usage?.total_tokens || 0,
+      success: true,
+    });
+
     const content = result.choices[0]?.message?.content;
     if (!content || typeof content !== "string") return [];
 
@@ -95,6 +110,14 @@ export async function extractKnowledgePoints(
     return points;
   } catch (error) {
     console.error("[KnowledgeExtractor] LLM extraction failed:", error);
+    trackUsage({
+      providerName: "builtin",
+      category: "llm",
+      caller: "knowledge_extract",
+      userId,
+      success: false,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
     return [];
   }
 }

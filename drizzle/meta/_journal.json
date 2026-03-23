@@ -92,6 +92,13 @@
       "when": 1774233751736,
       "tag": "0012_rare_talon",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1774235036519,
+      "tag": "0013_curvy_ink",
+      "breakpoints": true
     }
   ]
 }

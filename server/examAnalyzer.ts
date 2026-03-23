@@ -4,6 +4,7 @@
  * identify weak points, and generate personalized learning paths.
  */
 import { invokeLLM } from "./_core/llm";
+import { trackUsage } from "./usageTracker";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -289,6 +290,15 @@ export async function analyzeExamPaper(
         },
       },
     },
+  });
+
+  trackUsage({
+    providerName: "builtin", category: "llm",
+    model: result.model || "gemini-2.5-flash", caller: "exam_analyze",
+    inputTokens: result.usage?.prompt_tokens || 0,
+    outputTokens: result.usage?.completion_tokens || 0,
+    totalTokens: result.usage?.total_tokens || 0,
+    success: true,
   });
 
   const content = result.choices[0]?.message?.content;

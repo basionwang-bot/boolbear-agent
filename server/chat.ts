@@ -2,6 +2,7 @@ import { ENV } from "./_core/env";
 import * as db from "./db";
 import type { Bear } from "../drizzle/schema";
 import { decryptApiKey } from "./crypto";
+import { trackUsage } from "./usageTracker";
 
 // ==================== TIER SYSTEM ====================
 
@@ -110,7 +111,7 @@ const resolveBuiltinApiUrl = () =>
     : "https://forge.manus.im/v1/chat/completions";
 
 /** Resolve the LLM endpoint based on system settings (builtin vs custom) */
-async function resolveLlmConfig(): Promise<{ apiUrl: string; apiKey: string; model: string }> {
+async function resolveLlmConfig(): Promise<{ apiUrl: string; apiKey: string; model: string; providerName: string; configId: number | null }> {
   // Check system setting for chat LLM source
   const setting = await db.getSystemSetting("chat_llm_source");
   if (setting) {
@@ -127,6 +128,8 @@ async function resolveLlmConfig(): Promise<{ apiUrl: string; apiKey: string; mod
             apiUrl: `${baseUrl}/chat/completions`,
             apiKey,
             model,
+            providerName: config.displayName || config.providerId,
+            configId: config.id,
           };
         }
       }
@@ -140,6 +143,8 @@ async function resolveLlmConfig(): Promise<{ apiUrl: string; apiKey: string; mod
     apiUrl: resolveBuiltinApiUrl(),
     apiKey: ENV.forgeApiKey || "",
     model: "gemini-2.5-flash",
+    providerName: "builtin" as string,
+    configId: null as number | null,
   };
 }
 
@@ -148,8 +153,10 @@ export async function streamChat(
   messages: Array<{ role: string; content: string }>,
   onChunk: (chunk: string) => void,
   onDone: (fullContent: string) => void,
-  onError: (error: Error) => void
+  onError: (error: Error) => void,
+  userId?: number | null
 ) {
+  const startTime = Date.now();
   try {
     const llmConfig = await resolveLlmConfig();
 
@@ -215,8 +222,37 @@ export async function streamChat(
       }
     }
 
+    // Estimate tokens from content length (rough: 1 token ≈ 1.5 chars for Chinese)
+    const inputText = systemPrompt + messages.map(m => m.content).join("");
+    const estInputTokens = Math.ceil(inputText.length / 1.5);
+    const estOutputTokens = Math.ceil(fullContent.length / 1.5);
+
+    trackUsage({
+      configId: llmConfig.configId || null,
+      providerName: llmConfig.providerName || "builtin",
+      category: "llm",
+      model: llmConfig.model,
+      caller: "chat",
+      userId: userId || null,
+      inputTokens: estInputTokens,
+      outputTokens: estOutputTokens,
+      durationMs: Date.now() - startTime,
+      success: true,
+    });
+
     onDone(fullContent);
   } catch (error) {
+    trackUsage({
+      configId: null,
+      providerName: "unknown",
+      category: "llm",
+      model: null,
+      caller: "chat",
+      userId: userId || null,
+      durationMs: Date.now() - startTime,
+      success: false,
+      errorMessage: error instanceof Error ? error.message : String(error),
+    });
     onError(error instanceof Error ? error : new Error(String(error)));
   }
 }

@@ -237,3 +237,14 @@
 - [x] 后端：对话路由根据开关选择 LLM 来源（内置 invokeLLM vs 自定义 OpenAI 兼容 API）
 - [x] 前端：管理员 AI 服务配置页面添加"用于小熊对话"开关
 - [x] 编写测试并保存 checkpoint（126 个测试全部通过）
+
+## API Key 用量监控
+
+- [x] 数据库设计：api_usage_logs 表（记录每次 API 调用的提供商、模型、token 数、费用估算）
+- [x] 后端 API：用量追踪工具模块 trackUsage（含 30+ 模型定价表）
+- [x] 后端 API：用量统计查询（汇总、按服务商、按日期、最近记录）
+- [x] 后端 API：费用估算计算（基于各模型的定价）
+- [x] 埋点：在 chat.ts、courseGenerator、examAnalyzer、knowledgeExtractor 中添加用量追踪
+- [x] 前端：管理后台用量监控面板（汇总卡片、趋势图、服务商统计、最近记录）
+- [x] 前端：用量趋势图（今天/近7天/近30天/全部 时间筛选）
+- [x] 编写测试并保存 checkpoint（126 个测试全部通过）

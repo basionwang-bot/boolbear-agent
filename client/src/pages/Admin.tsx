@@ -19,6 +19,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { BEAR_TIERS } from "@/lib/bearAssets";
 import AiConfigPanel from "@/components/AiConfigPanel";
+import ApiUsagePanel from "@/components/ApiUsagePanel";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   PieChart, Pie, Cell, Legend, RadarChart, Radar, PolarGrid,
@@ -48,7 +49,7 @@ const SUBJECT_COLORS: Record<string, string> = {
 
 const PIE_COLORS = ["#E74C3C", "#3498DB", "#2ECC71", "#9B59B6", "#F39C12", "#1ABC9C", "#E67E22", "#16A085", "#8E44AD", "#2C3E50"];
 
-type AdminTab = "manage" | "analytics" | "materials" | "aiconfig";
+type AdminTab = "manage" | "analytics" | "materials" | "aiconfig" | "usage";
 
 export default function Admin() {
   const [, navigate] = useLocation();
@@ -445,6 +446,17 @@ export default function Admin() {
             style={activeTab === "aiconfig" ? { background: "oklch(0.55 0.15 330)" } : {}}
           >
             <Sparkles className="w-4 h-4" /> AI 服务配置
+          </button>
+          <button
+            onClick={() => setActiveTab("usage")}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-bold transition-all ${
+              activeTab === "usage"
+                ? "text-white shadow-lg"
+                : "bg-muted text-muted-foreground hover:bg-muted/80"
+            }`}
+            style={activeTab === "usage" ? { background: "oklch(0.55 0.12 200)" } : {}}
+          >
+            <Activity className="w-4 h-4" /> 用量监控
           </button>
         </div>
 
@@ -1256,6 +1268,13 @@ export default function Admin() {
         {/* ===================== AI CONFIG TAB ===================== */}
         {activeTab === "aiconfig" && (
           <AiConfigPanel />
+        )}
+
+        {/* ===================== USAGE MONITORING TAB ===================== */}
+        {activeTab === "usage" && (
+          <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} key="usage">
+            <ApiUsagePanel />
+          </motion.div>
         )}
       </div>
 

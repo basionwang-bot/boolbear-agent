@@ -3,6 +3,7 @@
  * Uses LLM to generate course outlines, chapter pages (bite-sized), and quiz questions.
  */
 import { invokeLLM } from "./_core/llm";
+import { trackUsage } from "./usageTracker";
 
 // ─── Types ───────────────────────────────────────────────────────────
 
@@ -110,6 +111,15 @@ export async function generateCourseOutline(
     },
   });
 
+  trackUsage({
+    providerName: "builtin", category: "llm",
+    model: result.model || "gemini-2.5-flash", caller: "course_generate",
+    inputTokens: result.usage?.prompt_tokens || 0,
+    outputTokens: result.usage?.completion_tokens || 0,
+    totalTokens: result.usage?.total_tokens || 0,
+    success: true,
+  });
+
   const content = result.choices[0]?.message?.content;
   if (!content || typeof content !== "string") {
     throw new Error("LLM returned empty response for course outline");
@@ -174,6 +184,15 @@ export async function generateChapterContent(
         content: `学习资料参考：\n${materialContent.slice(0, 3000)}\n\n请生成「${chapterTitle}」章节的详细教学内容。\n\n学习目标：${chapterObjectives.join("、")}\n关键知识点：${keyPoints.join("、")}`,
       },
     ],
+  });
+
+  trackUsage({
+    providerName: "builtin", category: "llm",
+    model: result.model || "gemini-2.5-flash", caller: "course_generate",
+    inputTokens: result.usage?.prompt_tokens || 0,
+    outputTokens: result.usage?.completion_tokens || 0,
+    totalTokens: result.usage?.total_tokens || 0,
+    success: true,
   });
 
   const content = result.choices[0]?.message?.content;
@@ -258,6 +277,15 @@ export async function generateChapterPages(
         },
       },
     },
+  });
+
+  trackUsage({
+    providerName: "builtin", category: "llm",
+    model: result.model || "gemini-2.5-flash", caller: "course_generate",
+    inputTokens: result.usage?.prompt_tokens || 0,
+    outputTokens: result.usage?.completion_tokens || 0,
+    totalTokens: result.usage?.total_tokens || 0,
+    success: true,
   });
 
   const content = result.choices[0]?.message?.content;
@@ -354,6 +382,15 @@ export async function generatePageQuestions(
         },
       },
     },
+  });
+
+  trackUsage({
+    providerName: "builtin", category: "llm",
+    model: result.model || "gemini-2.5-flash", caller: "course_generate",
+    inputTokens: result.usage?.prompt_tokens || 0,
+    outputTokens: result.usage?.completion_tokens || 0,
+    totalTokens: result.usage?.total_tokens || 0,
+    success: true,
   });
 
   const content = result.choices[0]?.message?.content;
