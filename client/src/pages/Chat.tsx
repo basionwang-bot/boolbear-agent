@@ -4,7 +4,7 @@
  */
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Plus, Brain, Zap, Shield, Loader2, MessageCircle } from "lucide-react";
+import { Send, Plus, Brain, Zap, Shield, Loader2, MessageCircle, Trash2 } from "lucide-react";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
@@ -67,6 +67,25 @@ export default function Chat() {
       }
     },
   });
+
+  // Delete conversation mutation
+  const deleteConvMutation = trpc.conversation.delete.useMutation({
+    onSuccess: () => {
+      toast.success("对话已删除");
+      convQuery.refetch();
+      // If deleted the active conversation, reset
+      if (activeConversationId === deletingConvId) {
+        setActiveConversationId(null);
+        setMessages([]);
+      }
+      setDeletingConvId(null);
+    },
+    onError: (err) => {
+      toast.error("删除失败：" + err.message);
+      setDeletingConvId(null);
+    },
+  });
+  const [deletingConvId, setDeletingConvId] = useState<number | null>(null);
 
   const utils = trpc.useUtils();
 
@@ -301,26 +320,79 @@ export default function Chat() {
             </div>
             <div className="space-y-1 max-h-40 overflow-y-auto">
               {convQuery.data?.map((conv) => (
-                <button
+                <div
                   key={conv.id}
-                  onClick={() => setActiveConversationId(conv.id)}
-                  className={`w-full text-left px-3 py-2 rounded-lg text-xs transition-all ${
+                  className={`group flex items-center gap-1 px-3 py-2 rounded-lg text-xs transition-all cursor-pointer ${
                     activeConversationId === conv.id
                       ? "font-bold"
                       : "text-muted-foreground hover:text-foreground"
                   }`}
                   style={activeConversationId === conv.id ? { background: "oklch(0.52 0.09 55 / 0.08)", color: "oklch(0.42 0.09 55)" } : {}}
+                  onClick={() => setActiveConversationId(conv.id)}
                 >
-                  <div className="flex items-center gap-2">
-                    <MessageCircle className="w-3 h-3 shrink-0" />
-                    <span className="truncate">{conv.title}</span>
-                  </div>
-                </button>
+                  <MessageCircle className="w-3 h-3 shrink-0" />
+                  <span className="truncate flex-1">{conv.title}</span>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setDeletingConvId(conv.id);
+                    }}
+                    className="opacity-0 group-hover:opacity-100 transition-opacity p-0.5 rounded hover:bg-red-100 dark:hover:bg-red-900/30"
+                    title="删除对话"
+                  >
+                    <Trash2 className="w-3 h-3 text-red-400 hover:text-red-600" />
+                  </button>
+                </div>
               ))}
               {(!convQuery.data || convQuery.data.length === 0) && (
                 <p className="text-xs text-muted-foreground text-center py-2">暂无对话</p>
               )}
             </div>
+
+            {/* Delete Confirmation Dialog */}
+            <AnimatePresence>
+              {deletingConvId !== null && (
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
+                  onClick={() => setDeletingConvId(null)}
+                >
+                  <motion.div
+                    initial={{ scale: 0.9, opacity: 0 }}
+                    animate={{ scale: 1, opacity: 1 }}
+                    exit={{ scale: 0.9, opacity: 0 }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-card rounded-2xl p-6 shadow-xl max-w-sm mx-4 border"
+                  >
+                    <h3 className="text-lg font-bold text-foreground mb-2">确认删除对话</h3>
+                    <p className="text-sm text-muted-foreground mb-5">
+                      删除后该对话的所有消息将无法恢复，确定要删除吗？
+                    </p>
+                    <div className="flex gap-3 justify-end">
+                      <button
+                        onClick={() => setDeletingConvId(null)}
+                        className="px-4 py-2 rounded-lg text-sm text-muted-foreground hover:bg-muted transition-colors"
+                      >
+                        取消
+                      </button>
+                      <button
+                        onClick={() => {
+                          if (deletingConvId) {
+                            deleteConvMutation.mutate({ conversationId: deletingConvId });
+                          }
+                        }}
+                        disabled={deleteConvMutation.isPending}
+                        className="px-4 py-2 rounded-lg text-sm bg-red-500 text-white hover:bg-red-600 transition-colors disabled:opacity-50"
+                      >
+                        {deleteConvMutation.isPending ? "删除中..." : "确认删除"}
+                      </button>
+                    </div>
+                  </motion.div>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
 
           {/* Emotion Status */}

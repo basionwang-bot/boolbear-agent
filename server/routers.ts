@@ -267,6 +267,18 @@ const conversationRouter = router({
       }
       return db.getMessagesByConversationId(input.conversationId);
     }),
+
+  /** Delete a conversation (only own conversations) */
+  delete: protectedProcedure
+    .input(z.object({ conversationId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const conv = await db.getConversationById(input.conversationId);
+      if (!conv || conv.userId !== ctx.user.id) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "对话不存在" });
+      }
+      await db.deleteConversation(input.conversationId);
+      return { success: true };
+    }),
 });
 
 // ==================== ADMIN ROUTER ====================

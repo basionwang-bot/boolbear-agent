@@ -246,6 +246,19 @@ export async function updateConversation(id: number, data: Partial<InsertConvers
   await db.update(conversations).set(data).where(eq(conversations.id, id));
 }
 
+export async function deleteConversation(id: number) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  // Delete messages first
+  await db.delete(messages).where(eq(messages.conversationId, id));
+  // Nullify knowledge points referencing this conversation
+  await db.update(knowledgePoints)
+    .set({ conversationId: null })
+    .where(eq(knowledgePoints.conversationId, id));
+  // Delete the conversation
+  await db.delete(conversations).where(eq(conversations.id, id));
+}
+
 // ==================== MESSAGE QUERIES ====================
 
 export async function createMessage(data: InsertMessage) {
