@@ -4,7 +4,8 @@
  */
 import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { Send, Plus, Brain, Zap, Shield, Loader2, MessageCircle, Trash2 } from "lucide-react";
+import { Send, Plus, Brain, Zap, Shield, Loader2, MessageCircle, Trash2, Mic } from "lucide-react";
+import VoiceRecorder from "@/components/VoiceRecorder";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
@@ -537,7 +538,14 @@ export default function Chat() {
                 <span className="text-sm text-orange-700">你的 AI 聊天功能已被管理员停用，请联系老师了解详情</span>
               </div>
             ) : (
-              <div className="flex items-center gap-3 max-w-3xl mx-auto">
+              <div className="flex items-center gap-2 max-w-3xl mx-auto">
+                {/* 语音录制按钮 */}
+                <VoiceRecorder
+                  onTranscribed={(text) => {
+                    setInput((prev) => (prev ? prev + " " + text : text));
+                  }}
+                  disabled={isStreaming}
+                />
                 <div className="flex-1">
                   <input
                     type="text"

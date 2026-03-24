@@ -17,6 +17,7 @@ import { aiConfigRouter } from "./aiConfigRouter";
 import { usageRouter } from "./usageRouter";
 import { classroomRouter } from "./classroomRouter";
 import { socialRouter } from "./socialRouter";
+import { voiceRouter } from "./voiceRouter";
 
 // ==================== AUTH ROUTER ====================
 
@@ -1514,6 +1515,7 @@ export const appRouter = router({
   usage: usageRouter,
   classroom: classroomRouter,
   social: socialRouter,
+  voice: voiceRouter,
 });
 
 export type AppRouter = typeof appRouter;
