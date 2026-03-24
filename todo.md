@@ -340,3 +340,17 @@
 - [ ] 前端：TTSButton 改回调用后端 API（MiniMax TTS）
 - [ ] 前端：管理后台添加 TTS 开关配置（启用/禁用 MiniMax TTS）
 - [ ] 编写测试并保存 checkpoint
+
+## Apple AI 风格炫彩光环效果（TTS 播放时）
+
+- [ ] 创建 AudioVisualizer 组件（Canvas + Web Audio API 实时频率分析）
+- [ ] 实现炫彩渐变光环动画（彩色渐变 + 模糊光晕 + 随音频跳动）
+- [ ] 集成到 Chat.tsx 小熊头像周围（TTS 播放时亮起，停止时淡出）
+
+## Apple AI 风格炫彩光环效果（TTS 播放时）
+
+- [x] 创建 ChatGlowRing 组件（Canvas requestAnimationFrame + conic-gradient 实现旋转彩色光环）
+- [x] 实现炫彩渐变光环动画（彩色渐变 + 模糊光晕 + 淡入淡出动画）
+- [x] 集成到 Chat.tsx 聊天主区域边框（TTS 播放时亮起，停止时淡出）
+- [x] TTSButton 添加 onPlayingChange 回调，将播放状态传递给父组件
+- [x] 测试修复：172 个测试全部通过

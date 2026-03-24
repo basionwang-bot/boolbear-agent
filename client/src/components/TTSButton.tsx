@@ -11,6 +11,8 @@ import { trpc } from "@/lib/trpc";
 interface TTSButtonProps {
   text: string;
   className?: string;
+  /** 播放状态变化回调，用于触发外部光环效果 */
+  onPlayingChange?: (isPlaying: boolean) => void;
 }
 
 /** Strip markdown so the speech sounds natural */
@@ -26,18 +28,23 @@ function cleanTextForSpeech(raw: string): string {
     .trim();
 }
 
-export default function TTSButton({ text, className = "" }: TTSButtonProps) {
+export default function TTSButton({ text, className = "", onPlayingChange }: TTSButtonProps) {
   const [status, setStatus] = useState<"idle" | "loading" | "playing" | "error">("idle");
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const cachedUrlRef = useRef<string | null>(null);
 
   // Check if TTS is enabled by admin
   const ttsEnabledQuery = trpc.aiConfig.isTtsEnabled.useQuery(undefined, {
-    staleTime: 60_000, // cache for 1 minute
+    staleTime: 60_000,
     retry: false,
   });
 
   const ttsMutation = trpc.voice.tts.useMutation();
+
+  // Notify parent when playing state changes
+  useEffect(() => {
+    onPlayingChange?.(status === "playing");
+  }, [status, onPlayingChange]);
 
   // Cleanup on unmount
   useEffect(() => {

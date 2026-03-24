@@ -421,6 +421,8 @@ export default function Chat() {
 
         {/* Main Chat Area */}
         <div className="flex-1 flex flex-col relative">
+          {/* Apple AI 风格炫彩光环 */}
+          <ChatGlowRing isPlaying={isTtsPlaying} />
           {/* Chat Background */}
           <div
             className="absolute inset-0 opacity-15"
@@ -498,7 +500,10 @@ export default function Chat() {
                         )}
                       </div>
                       {msg.role === "assistant" && msg.content && (
-                        <TTSButton text={msg.content} />
+                        <TTSButton
+                          text={msg.content}
+                          onPlayingChange={setIsTtsPlaying}
+                        />
                       )}
                     </div>
                     {msg.role === "user" && (

@@ -67,7 +67,13 @@ function createUnauthContext(): TrpcContext {
 
 describe("voice.transcribe", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    // Re-setup TTS mock after reset
+    const { textToSpeech } = await import("./_core/tts");
+    (textToSpeech as ReturnType<typeof vi.fn>).mockResolvedValue({
+      audioUrl: "https://api.minimax.chat/audio/test123.mp3",
+      contentType: "audio/mpeg",
+    });
   });
 
   it("should transcribe audio successfully", async () => {
@@ -188,7 +194,13 @@ describe("voice.transcribe", () => {
 
 describe("voice.tts", () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    vi.resetAllMocks();
+    // Re-setup TTS mock after reset
+    const { textToSpeech } = await import("./_core/tts");
+    (textToSpeech as ReturnType<typeof vi.fn>).mockResolvedValue({
+      audioUrl: "https://api.minimax.chat/audio/test123.mp3",
+      contentType: "audio/mpeg",
+    });
   });
 
   it("should convert text to speech successfully", async () => {
@@ -275,11 +287,11 @@ describe("voice.tts", () => {
     const ctx = createAuthContext();
     const caller = appRouter.createCaller(ctx);
 
-    const voices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"] as const;
-    for (const voice of voices) {
+    const voiceIds = ["male-qn-qingse", "female-shaonv", "male-qn-jingying", "female-yujie"] as const;
+    for (const voiceId of voiceIds) {
       const result = await caller.voice.tts({
         text: "测试",
-        voice,
+        voiceId,
       });
       expect(result.audioUrl).toBeTruthy();
     }
