@@ -354,3 +354,7 @@
 - [x] 集成到 Chat.tsx 聊天主区域边框（TTS 播放时亮起，停止时淡出）
 - [x] TTSButton 添加 onPlayingChange 回调，将播放状态传递给父组件
 - [x] 测试修复：172 个测试全部通过
+
+## Bug Fixes (7)
+
+- [x] Bug: 聊天页面直接出错崩溃（根因：Vite HMR 缓存未正确加载 ChatGlowRing 组件。修复：清除 node_modules/.vite 缓存并重启服务器）
