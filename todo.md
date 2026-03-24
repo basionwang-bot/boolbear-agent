@@ -325,3 +325,8 @@
 ## Bug Fixes (5)
 
 - [x] Bug: TTS 服务请求失败（根因：Forge API 不支持 v1/audio/speech 端点。修复：改为使用管理员配置的外部 TTS 提供商（OpenAI/豆包/通义千问/MiniMax），从数据库查询默认 TTS 配置并调用对应的 API 端点。167 个测试全部通过）
+
+## Bug Fixes (6)
+
+- [ ] Bug: TTS 播放功能仍然不工作（需要进一步排查根因）
+- [ ] UI: TTS 播放按钮太大，需要缩小

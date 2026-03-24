@@ -1,36 +1,54 @@
 /**
- * TTS 播放按钮组件
- * 在小熊回复消息旁显示播放/暂停按钮
- * 点击后调用后端 TTS API 将文字转为语音并播放
+ * TTS 播放按钮组件（使用浏览器原生 Web Speech API）
+ * 在小熊回复消息旁显示一个小巧的播放/停止图标按钮
+ * 零配置，无需后端 API
  */
-import { useState, useRef, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Volume2, VolumeX, Loader2 } from "lucide-react";
-import { trpc } from "@/lib/trpc";
 
 interface TTSButtonProps {
   text: string;
-  voice?: "alloy" | "echo" | "fable" | "onyx" | "nova" | "shimmer";
-  speed?: number;
   className?: string;
 }
 
-export default function TTSButton({
-  text,
-  voice = "nova",
-  speed = 1.0,
-  className = "",
-}: TTSButtonProps) {
+/** Strip markdown so the speech sounds natural */
+function cleanTextForSpeech(raw: string): string {
+  return raw
+    .replace(/\*\*(.*?)\*\*/g, "$1")
+    .replace(/\*(.*?)\*/g, "$1")
+    .replace(/`{1,3}[^`]*`{1,3}/g, "")
+    .replace(/#{1,6}\s/g, "")
+    .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
+    .replace(/[-*>|]/g, " ")
+    .replace(/\n{2,}/g, "。")
+    .replace(/\n/g, "，")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+export default function TTSButton({ text, className = "" }: TTSButtonProps) {
   const [status, setStatus] = useState<"idle" | "loading" | "playing" | "error">("idle");
-  const audioRef = useRef<HTMLAudioElement | null>(null);
-  const cachedUrlRef = useRef<string | null>(null);
 
-  const ttsMutation = trpc.voice.tts.useMutation();
+  // Check if Web Speech API is available
+  const isSupported = typeof window !== "undefined" && "speechSynthesis" in window;
 
-  const handleClick = useCallback(async () => {
-    // If playing, pause
-    if (status === "playing" && audioRef.current) {
-      audioRef.current.pause();
-      audioRef.current.currentTime = 0;
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (typeof window !== "undefined" && "speechSynthesis" in window) {
+        window.speechSynthesis.cancel();
+      }
+    };
+  }, []);
+
+  const handleClick = useCallback(() => {
+    if (!isSupported) return;
+
+    const synth = window.speechSynthesis;
+
+    // If playing, stop
+    if (status === "playing") {
+      synth.cancel();
       setStatus("idle");
       return;
     }
@@ -38,116 +56,82 @@ export default function TTSButton({
     // If loading, ignore
     if (status === "loading") return;
 
-    // Strip markdown formatting for cleaner speech
-    const cleanText = text
-      .replace(/\*\*(.*?)\*\*/g, "$1")
-      .replace(/\*(.*?)\*/g, "$1")
-      .replace(/`(.*?)`/g, "$1")
-      .replace(/#{1,6}\s/g, "")
-      .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
-      .replace(/[🐻🎉🌟💪✨🎓📚🔥⭐️🏆👋😊🐾]/g, "")
-      .trim();
+    const cleaned = cleanTextForSpeech(text);
+    if (!cleaned) return;
 
-    if (!cleanText) return;
+    // Truncate very long text (browser TTS can struggle with long text)
+    const truncated = cleaned.length > 2000 ? cleaned.slice(0, 2000) : cleaned;
 
-    // Truncate if too long
-    const truncated = cleanText.length > 4000 ? cleanText.slice(0, 4000) + "..." : cleanText;
+    // Cancel any ongoing speech
+    synth.cancel();
 
-    try {
-      setStatus("loading");
+    setStatus("loading");
 
-      // Use cached URL if available
-      let audioUrl = cachedUrlRef.current;
+    const utterance = new SpeechSynthesisUtterance(truncated);
 
-      if (!audioUrl) {
-        const result = await ttsMutation.mutateAsync({
-          text: truncated,
-          voice,
-          speed,
-        });
-        audioUrl = result.audioUrl;
-        cachedUrlRef.current = audioUrl;
-      }
+    // Try to find a Chinese voice
+    const voices = synth.getVoices();
+    const zhVoice = voices.find(
+      (v) => v.lang.startsWith("zh") && v.name.toLowerCase().includes("female")
+    ) || voices.find((v) => v.lang.startsWith("zh"));
+    if (zhVoice) {
+      utterance.voice = zhVoice;
+    }
+    utterance.lang = "zh-CN";
+    utterance.rate = 1.0;
+    utterance.pitch = 1.05;
 
-      // Play audio
-      if (audioRef.current) {
-        audioRef.current.pause();
-        audioRef.current = null;
-      }
-
-      const audio = new Audio(audioUrl);
-      audioRef.current = audio;
-
-      audio.onended = () => {
+    utterance.onstart = () => setStatus("playing");
+    utterance.onend = () => setStatus("idle");
+    utterance.onerror = (e) => {
+      // "interrupted" is not a real error (happens when we cancel)
+      if (e.error === "interrupted" || e.error === "canceled") {
         setStatus("idle");
-      };
-      audio.onerror = () => {
+      } else {
+        console.error("TTS error:", e.error);
         setStatus("error");
-        cachedUrlRef.current = null;
         setTimeout(() => setStatus("idle"), 2000);
-      };
+      }
+    };
 
-      await audio.play();
-      setStatus("playing");
-    } catch (err) {
-      console.error("TTS error:", err);
-      setStatus("error");
-      cachedUrlRef.current = null;
-      setTimeout(() => setStatus("idle"), 2000);
-    }
-  }, [text, voice, speed, status, ttsMutation]);
+    synth.speak(utterance);
+  }, [text, status, isSupported]);
 
-  const getIcon = () => {
-    switch (status) {
-      case "loading":
-        return <Loader2 className="w-3.5 h-3.5 animate-spin" />;
-      case "playing":
-        return <VolumeX className="w-3.5 h-3.5" />;
-      case "error":
-        return <Volume2 className="w-3.5 h-3.5 text-red-400" />;
-      default:
-        return <Volume2 className="w-3.5 h-3.5" />;
-    }
-  };
+  if (!isSupported) return null;
 
-  const getTooltip = () => {
-    switch (status) {
-      case "loading":
-        return "正在生成语音...";
-      case "playing":
-        return "点击停止";
-      case "error":
-        return "语音生成失败，点击重试";
-      default:
-        return "播放语音";
-    }
-  };
+  const iconSize = "w-3 h-3";
 
   return (
     <button
       onClick={handleClick}
       disabled={status === "loading"}
-      title={getTooltip()}
-      className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs transition-all
-        ${status === "playing"
-          ? "bg-[oklch(0.52_0.09_55/0.2)] text-[oklch(0.42_0.09_55)]"
+      title={
+        status === "loading"
+          ? "正在准备..."
+          : status === "playing"
+          ? "点击停止"
           : status === "error"
-          ? "bg-red-50 text-red-400 hover:bg-red-100"
-          : "bg-[oklch(0.52_0.09_55/0.08)] text-[oklch(0.52_0.09_55)] hover:bg-[oklch(0.52_0.09_55/0.15)]"
+          ? "播放失败，点击重试"
+          : "播放语音"
+      }
+      className={`inline-flex items-center justify-center w-6 h-6 rounded-full transition-all
+        ${
+          status === "playing"
+            ? "bg-[oklch(0.52_0.09_55/0.25)] text-[oklch(0.42_0.09_55)]"
+            : status === "error"
+            ? "bg-red-50 text-red-400 hover:bg-red-100"
+            : "text-muted-foreground/60 hover:text-[oklch(0.52_0.09_55)] hover:bg-[oklch(0.52_0.09_55/0.1)]"
         }
         disabled:opacity-50 disabled:cursor-wait
         ${className}`}
     >
-      {getIcon()}
-      <span className="hidden sm:inline">
-        {status === "loading"
-          ? "生成中"
-          : status === "playing"
-          ? "停止"
-          : status === "error"
-          ? "重试"
-          : "播放"}
-      </span>
+      {status === "loading" ? (
+        <Loader2 className={`${iconSize} animate-spin`} />
+      ) : status === "playing" ? (
+        <VolumeX className={iconSize} />
+      ) : (
+        <Volume2 className={`${iconSize} ${status === "error" ? "text-red-400" : ""}`} />
+      )}
     </button>
   );
 }
