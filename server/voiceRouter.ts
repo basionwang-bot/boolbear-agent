@@ -9,6 +9,7 @@ import { transcribeAudio } from "./_core/voiceTranscription";
 import { textToSpeech, type TTSVoice } from "./_core/tts";
 import { storagePut } from "./storage";
 import { nanoid } from "nanoid";
+import * as db from "./db";
 
 export const voiceRouter = router({
   /**
@@ -124,12 +125,18 @@ export const voiceRouter = router({
     .mutation(async ({ input, ctx }) => {
       const userId = ctx.user.id;
 
-      // 1. 调用 TTS API
-      const result = await textToSpeech({
-        text: input.text,
-        voice: input.voice as TTSVoice,
-        speed: input.speed,
-      });
+      // 1. 调用 TTS API（使用配置的 TTS 提供商）
+      const result = await textToSpeech(
+        {
+          text: input.text,
+          voice: input.voice as TTSVoice,
+          speed: input.speed,
+        },
+        // Pass a function to get the default TTS provider config
+        async (category: string) => {
+          return await db.getDefaultAiProviderConfig(category);
+        }
+      );
 
       // 检查是否返回错误
       if ("error" in result) {

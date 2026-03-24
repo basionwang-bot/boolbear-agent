@@ -321,3 +321,7 @@
 - [x] 前端：创建 TTSButton 播放按钮组件（播放/暂停/加载/错误状态）
 - [x] 前端：集成 TTSButton 到 Chat.tsx 小熊回复消息下方
 - [x] 编写 vitest 测试（167 个测试全部通过）
+
+## Bug Fixes (5)
+
+- [x] Bug: TTS 服务请求失败（根因：Forge API 不支持 v1/audio/speech 端点。修复：改为使用管理员配置的外部 TTS 提供商（OpenAI/豆包/通义千问/MiniMax），从数据库查询默认 TTS 配置并调用对应的 API 端点。167 个测试全部通过）
