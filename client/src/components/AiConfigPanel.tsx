@@ -118,6 +118,16 @@ export default function AiConfigPanel() {
     onError: (err) => toast.error(`设置失败: ${err.message}`),
   });
 
+  // TTS toggle
+  const ttsEnabledQuery = trpc.aiConfig.getTtsEnabled.useQuery();
+  const setTtsEnabledMutation = trpc.aiConfig.setTtsEnabled.useMutation({
+    onSuccess: (data) => {
+      utils.aiConfig.getTtsEnabled.invalidate();
+      toast.success(data.enabled ? "TTS 语音合成已开启" : "TTS 语音合成已关闭");
+    },
+    onError: (err) => toast.error(`设置失败: ${err.message}`),
+  });
+
   // Get LLM configs for the toggle dropdown
   const llmConfigs = useMemo(() => {
     if (!configsQuery.data) return [];
@@ -251,6 +261,36 @@ export default function AiConfigPanel() {
           );
         })}
       </div>
+
+      {/* TTS Toggle - only show when TTS category is active */}
+      {activeCategory === "tts" && (
+        <div className="flex items-center justify-between p-4 rounded-xl mb-4 border" style={{ borderColor: "oklch(0.55 0.18 155 / 0.3)", background: "oklch(0.55 0.18 155 / 0.06)" }}>
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg flex items-center justify-center" style={{ background: "oklch(0.55 0.18 155 / 0.15)" }}>
+              <Volume2 className="w-4.5 h-4.5" style={{ color: "oklch(0.55 0.18 155)" }} />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm" style={{ color: "oklch(0.30 0.06 55)" }}>TTS 语音合成总开关</h4>
+              <p className="text-xs text-muted-foreground">开启后，学生可在聊天界面播放小熊回复的语音</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setTtsEnabledMutation.mutate({ enabled: !(ttsEnabledQuery.data?.enabled) })}
+            disabled={setTtsEnabledMutation.isPending}
+            className="relative w-12 h-6 rounded-full transition-all duration-200 focus:outline-none"
+            style={{
+              background: ttsEnabledQuery.data?.enabled ? "oklch(0.55 0.18 155)" : "oklch(0.80 0.02 55)",
+            }}
+          >
+            <span
+              className="absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200"
+              style={{
+                transform: ttsEnabledQuery.data?.enabled ? "translateX(24px)" : "translateX(0)",
+              }}
+            />
+          </button>
+        </div>
+      )}
 
       {/* Category Description */}
       <div className="flex items-center gap-3 p-4 rounded-xl mb-6" style={{ background: activeCategoryInfo.bgColor }}>

@@ -1,10 +1,12 @@
 /**
- * TTS 播放按钮组件（使用浏览器原生 Web Speech API）
- * 在小熊回复消息旁显示一个小巧的播放/停止图标按钮
- * 零配置，无需后端 API
+ * TTS 播放按钮组件
+ * 调用后端 MiniMax TTS API 将小熊回复转为语音并播放
+ * 小巧的圆形图标按钮，仅显示图标
+ * 根据管理员 TTS 开关决定是否显示
  */
-import { useState, useCallback, useEffect } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import { Volume2, VolumeX, Loader2 } from "lucide-react";
+import { trpc } from "@/lib/trpc";
 
 interface TTSButtonProps {
   text: string;
@@ -20,35 +22,38 @@ function cleanTextForSpeech(raw: string): string {
     .replace(/#{1,6}\s/g, "")
     .replace(/\[([^\]]+)\]\([^)]+\)/g, "$1")
     .replace(/[-*>|]/g, " ")
-    .replace(/\n{2,}/g, "。")
-    .replace(/\n/g, "，")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
 
 export default function TTSButton({ text, className = "" }: TTSButtonProps) {
   const [status, setStatus] = useState<"idle" | "loading" | "playing" | "error">("idle");
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const cachedUrlRef = useRef<string | null>(null);
 
-  // Check if Web Speech API is available
-  const isSupported = typeof window !== "undefined" && "speechSynthesis" in window;
+  // Check if TTS is enabled by admin
+  const ttsEnabledQuery = trpc.aiConfig.isTtsEnabled.useQuery(undefined, {
+    staleTime: 60_000, // cache for 1 minute
+    retry: false,
+  });
+
+  const ttsMutation = trpc.voice.tts.useMutation();
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (typeof window !== "undefined" && "speechSynthesis" in window) {
-        window.speechSynthesis.cancel();
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
       }
     };
   }, []);
 
-  const handleClick = useCallback(() => {
-    if (!isSupported) return;
-
-    const synth = window.speechSynthesis;
-
+  const handleClick = useCallback(async () => {
     // If playing, stop
-    if (status === "playing") {
-      synth.cancel();
+    if (status === "playing" && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.currentTime = 0;
       setStatus("idle");
       return;
     }
@@ -59,45 +64,55 @@ export default function TTSButton({ text, className = "" }: TTSButtonProps) {
     const cleaned = cleanTextForSpeech(text);
     if (!cleaned) return;
 
-    // Truncate very long text (browser TTS can struggle with long text)
-    const truncated = cleaned.length > 2000 ? cleaned.slice(0, 2000) : cleaned;
+    // Truncate if too long
+    const truncated = cleaned.length > 4000 ? cleaned.slice(0, 4000) : cleaned;
 
-    // Cancel any ongoing speech
-    synth.cancel();
+    try {
+      setStatus("loading");
 
-    setStatus("loading");
+      // Use cached URL if available
+      let audioUrl = cachedUrlRef.current;
 
-    const utterance = new SpeechSynthesisUtterance(truncated);
-
-    // Try to find a Chinese voice
-    const voices = synth.getVoices();
-    const zhVoice = voices.find(
-      (v) => v.lang.startsWith("zh") && v.name.toLowerCase().includes("female")
-    ) || voices.find((v) => v.lang.startsWith("zh"));
-    if (zhVoice) {
-      utterance.voice = zhVoice;
-    }
-    utterance.lang = "zh-CN";
-    utterance.rate = 1.0;
-    utterance.pitch = 1.05;
-
-    utterance.onstart = () => setStatus("playing");
-    utterance.onend = () => setStatus("idle");
-    utterance.onerror = (e) => {
-      // "interrupted" is not a real error (happens when we cancel)
-      if (e.error === "interrupted" || e.error === "canceled") {
-        setStatus("idle");
-      } else {
-        console.error("TTS error:", e.error);
-        setStatus("error");
-        setTimeout(() => setStatus("idle"), 2000);
+      if (!audioUrl) {
+        const result = await ttsMutation.mutateAsync({
+          text: truncated,
+        });
+        audioUrl = result.audioUrl;
+        cachedUrlRef.current = audioUrl;
       }
-    };
 
-    synth.speak(utterance);
-  }, [text, status, isSupported]);
+      // Play audio
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
 
-  if (!isSupported) return null;
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.onended = () => {
+        setStatus("idle");
+      };
+      audio.onerror = () => {
+        setStatus("error");
+        cachedUrlRef.current = null;
+        setTimeout(() => setStatus("idle"), 2000);
+      };
+
+      await audio.play();
+      setStatus("playing");
+    } catch (err) {
+      console.error("TTS error:", err);
+      setStatus("error");
+      cachedUrlRef.current = null;
+      setTimeout(() => setStatus("idle"), 2000);
+    }
+  }, [text, status, ttsMutation]);
+
+  // Don't render if TTS is disabled or still loading
+  if (ttsEnabledQuery.isLoading || !ttsEnabledQuery.data?.enabled) {
+    return null;
+  }
 
   const iconSize = "w-3 h-3";
 
@@ -107,7 +122,7 @@ export default function TTSButton({ text, className = "" }: TTSButtonProps) {
       disabled={status === "loading"}
       title={
         status === "loading"
-          ? "正在准备..."
+          ? "正在生成语音..."
           : status === "playing"
           ? "点击停止"
           : status === "error"

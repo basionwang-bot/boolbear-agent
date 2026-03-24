@@ -4,7 +4,7 @@
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
-import { adminProcedure, router } from "./_core/trpc";
+import { adminProcedure, publicProcedure, router } from "./_core/trpc";
 import * as db from "./db";
 import { encryptApiKey, decryptApiKey, maskApiKey } from "./crypto";
 
@@ -294,5 +294,40 @@ export const aiConfigRouter = router({
       await db.updateAiProviderTestResult(input.id, success);
 
       return { success, message };
+    }),
+
+  /** Get TTS enabled status (public - any authenticated user can check) */
+  isTtsEnabled: publicProcedure.query(async () => {
+    const setting = await db.getSystemSetting("tts_enabled");
+    if (!setting) return { enabled: false };
+    try {
+      return { enabled: JSON.parse(setting.settingValue) === true };
+    } catch {
+      return { enabled: false };
+    }
+  }),
+
+  /** Get TTS enabled status (admin view) */
+  getTtsEnabled: adminProcedure.query(async () => {
+    const setting = await db.getSystemSetting("tts_enabled");
+    if (!setting) return { enabled: false };
+    try {
+      return { enabled: JSON.parse(setting.settingValue) === true };
+    } catch {
+      return { enabled: false };
+    }
+  }),
+
+  /** Toggle TTS on/off */
+  setTtsEnabled: adminProcedure
+    .input(z.object({ enabled: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      await db.upsertSystemSetting(
+        "tts_enabled",
+        JSON.stringify(input.enabled),
+        "TTS 语音合成开关",
+        ctx.user.id
+      );
+      return { success: true, enabled: input.enabled };
     }),
 });

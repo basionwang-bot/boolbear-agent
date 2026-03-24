@@ -328,5 +328,15 @@
 
 ## Bug Fixes (6)
 
-- [ ] Bug: TTS 播放功能仍然不工作（需要进一步排查根因）
-- [ ] UI: TTS 播放按钮太大，需要缩小
+- [x] Bug: TTS 播放功能仍然不工作（根因：DashScope CosyVoice 不支持简单 HTTP REST API，需要 WebSocket/SDK。修复：改用浏览器原生 Web Speech API，零配置即用）
+- [x] UI: TTS 播放按钮太大，需要缩小（改为 24x24px 圆形图标按钮，仅显示图标无文字）
+
+## MiniMax TTS 集成
+
+- [ ] 研究 MiniMax TTS API 接口规范
+- [ ] 后端：实现 MiniMax TTS 调用逻辑（tts.ts）
+- [ ] 后端：更新 voiceRouter 使用 MiniMax TTS（回退浏览器原生 TTS）
+- [ ] 后端：保存 MiniMax API Key 到环境变量
+- [ ] 前端：TTSButton 改回调用后端 API（MiniMax TTS）
+- [ ] 前端：管理后台添加 TTS 开关配置（启用/禁用 MiniMax TTS）
+- [ ] 编写测试并保存 checkpoint
