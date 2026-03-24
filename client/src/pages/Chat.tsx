@@ -6,6 +6,7 @@ import { useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { Send, Plus, Brain, Zap, Shield, Loader2, MessageCircle, Trash2, Mic } from "lucide-react";
 import VoiceRecorder from "@/components/VoiceRecorder";
+import TTSButton from "@/components/TTSButton";
 import { useAuth } from "@/_core/hooks/useAuth";
 import { trpc } from "@/lib/trpc";
 import { useLocation } from "wouter";
@@ -481,18 +482,23 @@ export default function Chat() {
                     {msg.role === "assistant" && (
                       <img src={bearImage} alt={bear.bearName} className="w-9 h-9 rounded-full shrink-0 mt-1" />
                     )}
-                    <div
-                      className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
-                        msg.role === "user"
-                          ? "text-white rounded-br-md"
-                          : "bg-white text-foreground rounded-bl-md border border-[oklch(0.52_0.09_55/0.1)]"
-                      }`}
-                      style={msg.role === "user" ? { background: "oklch(0.52 0.09 55)" } : {}}
-                    >
-                      {msg.role === "assistant" ? (
-                        <ChatMarkdown>{msg.content}</ChatMarkdown>
-                      ) : (
-                        <div className="whitespace-pre-wrap">{msg.content}</div>
+                    <div className="flex flex-col gap-1">
+                      <div
+                        className={`max-w-[70%] rounded-2xl px-4 py-3 text-sm leading-relaxed shadow-sm ${
+                          msg.role === "user"
+                            ? "text-white rounded-br-md"
+                            : "bg-white text-foreground rounded-bl-md border border-[oklch(0.52_0.09_55/0.1)]"
+                        }`}
+                        style={msg.role === "user" ? { background: "oklch(0.52 0.09 55)" } : {}}
+                      >
+                        {msg.role === "assistant" ? (
+                          <ChatMarkdown>{msg.content}</ChatMarkdown>
+                        ) : (
+                          <div className="whitespace-pre-wrap">{msg.content}</div>
+                        )}
+                      </div>
+                      {msg.role === "assistant" && msg.content && (
+                        <TTSButton text={msg.content} />
                       )}
                     </div>
                     {msg.role === "user" && (

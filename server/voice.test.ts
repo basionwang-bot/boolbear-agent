@@ -21,6 +21,14 @@ vi.mock("./_core/voiceTranscription", () => ({
   }),
 }));
 
+// Mock textToSpeech
+vi.mock("./_core/tts", () => ({
+  textToSpeech: vi.fn().mockResolvedValue({
+    audioBuffer: Buffer.from("fake-mp3-audio-data"),
+    contentType: "audio/mpeg",
+  }),
+}));
+
 function createAuthContext(): TrpcContext {
   return {
     user: {
@@ -175,5 +183,105 @@ describe("voice.transcribe", () => {
       mimeType: "audio/ogg",
     });
     expect(result3.text).toBe("你好世界");
+  });
+});
+
+describe("voice.tts", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
+
+  it("should convert text to speech successfully", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.voice.tts({
+      text: "你好，我是你的小熊老师",
+      voice: "nova",
+      speed: 1.0,
+    });
+
+    expect(result).toHaveProperty("audioUrl");
+    expect(result).toHaveProperty("contentType");
+    expect(result.contentType).toBe("audio/mpeg");
+    expect(result.audioUrl).toContain("https://");
+  });
+
+  it("should reject unauthenticated TTS requests", async () => {
+    const ctx = createUnauthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.voice.tts({
+        text: "test",
+      })
+    ).rejects.toThrow();
+  });
+
+  it("should reject empty text", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.voice.tts({
+        text: "",
+      })
+    ).rejects.toThrow();
+  });
+
+  it("should reject text exceeding 4096 characters", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const longText = "a".repeat(4097);
+
+    await expect(
+      caller.voice.tts({
+        text: longText,
+      })
+    ).rejects.toThrow();
+  });
+
+  it("should use default voice and speed when not specified", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const result = await caller.voice.tts({
+      text: "测试语音",
+    });
+
+    expect(result.audioUrl).toContain("https://");
+    expect(result.contentType).toBe("audio/mpeg");
+  });
+
+  it("should handle TTS service errors gracefully", async () => {
+    const { textToSpeech } = await import("./_core/tts");
+    (textToSpeech as ReturnType<typeof vi.fn>).mockResolvedValueOnce({
+      error: "TTS service unavailable",
+      code: "SERVICE_ERROR",
+    });
+
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    await expect(
+      caller.voice.tts({
+        text: "测试",
+      })
+    ).rejects.toThrow();
+  });
+
+  it("should accept different voice options", async () => {
+    const ctx = createAuthContext();
+    const caller = appRouter.createCaller(ctx);
+
+    const voices = ["alloy", "echo", "fable", "onyx", "nova", "shimmer"] as const;
+    for (const voice of voices) {
+      const result = await caller.voice.tts({
+        text: "测试",
+        voice,
+      });
+      expect(result.audioUrl).toBeTruthy();
+    }
   });
 });
